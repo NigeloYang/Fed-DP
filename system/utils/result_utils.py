@@ -19,14 +19,13 @@ class Metrics(object):
         self.client_send_time = {c: [0] * global_epoch for c in range(self.args.num_clients)}
         self.global_epoch_time = []
         self.local_avg_train_acc = []
+        self.local_avg_train_loss = []
         self.local_avg_test_acc = []
-        self.local_avg_loss = []
         self.final_accuracies = []
         self.final_loss = []
         self.clients_per_round = []
         self.clients_rate = []
         self.epsilon_rate = []
-        self.round_time = []
         self.all_time = []
         self.path = './result/'
     
@@ -36,7 +35,7 @@ class Metrics(object):
         metrics = {}
         metrics['dataset'] = self.args.dataset
         metrics['algorithm'] = self.args.algorithm
-        metrics['model_name'] = self.args.model
+        metrics['model_name'] = self.args.model_name
         metrics['global_epoch'] = self.args.global_epoch
         metrics['eval_every'] = self.args.eval_every
         metrics['learn_rate'] = self.args.learn_rate
@@ -49,20 +48,20 @@ class Metrics(object):
         metrics['mp_rate'] = self.args.mp_rate
         metrics['epsilon'] = self.args.epsilon
         metrics['delta'] = self.args.delta
-        metrics['client_trainloss'] = self.client_train_loss
+        metrics['clients_per_round'] = self.clients_per_round
+        metrics['clients_rate'] = self.clients_rate
+        metrics['epsilon_rate'] = self.epsilon_rate
+        metrics['client_train_loss'] = self.client_train_loss
         metrics['client_train_acc'] = self.client_train_acc
         metrics['client_test_acc'] = self.client_test_acc
         metrics['client_train_time'] = self.client_train_time
         metrics['client_send_time'] = self.client_send_time
         metrics['global_epoch_time'] = self.global_epoch_time
-        metrics['local_avg_acc'] = self.local_avg_acc
-        metrics['local_avg_loss'] = self.local_avg_loss
-        metrics['accuracies'] = self.final_accuracies
-        metrics['loss'] = self.final_loss
-        metrics['clients_per_round'] = self.clients_per_round
-        metrics['clients_rate'] = self.clients_rate
-        metrics['epsilon_rate'] = self.epsilon_rate
-        metrics['round_time'] = self.round_time
+        metrics['local_avg_train_acc'] = self.local_avg_train_acc
+        metrics['local_avg_train_loss'] = self.local_avg_train_loss
+        metrics['local_avg_test_acc'] = self.local_avg_test_acc
+        metrics['final_accuracies'] = self.final_accuracies
+        metrics['final_loss'] = self.final_loss
         metrics['all_time'] = self.all_time
         metrics_dir = os.path.join(self.path, self.args.dataset, str(self.args.dataiid),
                                    '{}_{}_{}_{}_{}_{}_{}_{}_{}_{}_{}_{}.json'.format(self.args.dataset,
@@ -79,6 +78,7 @@ class Metrics(object):
                                                                                      time))
         with open(metrics_dir, 'w') as ouf:
             json.dump(metrics, ouf)
+
 
 if __name__ == "__main__":
     pass

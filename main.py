@@ -23,12 +23,10 @@ from system.utils.result_utils import Metrics
 def start_train(args):
     print('--------------------- start ------------------------')
     start = time.time()
-    model_name = args.model
     metrics = Metrics(args)
-    metrics.model = model_name
     
     # generated model
-    if model_name == "CNNMnist1":
+    if args.model_name == "CNNMnist1":
         args.model = CNNMnist1().to(args.device)
     else:
         raise NotImplementedError
@@ -40,12 +38,12 @@ def start_train(args):
         server = FedAvg(args, metrics)
     else:
         raise NotImplementedError
-
+    
     server.train()
     
     metrics.all_time.append(time.time() - start)
     metrics.write()
-    print(f'All done! All Epoch Costs Time: {time.time() - start:.2f} \n')
+    print(f'\n All done! All Epoch Costs Time: {time.time() - start:.2f} \n')
 
 
 if __name__ == '__main__':
@@ -58,10 +56,11 @@ if __name__ == '__main__':
     # main setting
     parser.add_argument('--algorithm', type=str, default='FedAvg', help='name of training framework;')
     parser.add_argument('--dataset', type=str, default='mnist', help='name of dataset;')
+    parser.add_argument('--model_name', type=str, default='CNNMnist1', help='name of model;')
     parser.add_argument('--model', type=str, default='CNNMnist1', help='name of model;')
     
     # global
-    parser.add_argument('--global_epoch', type=int, default=100, help="number of rounds of global training")
+    parser.add_argument('--global_epoch', type=int, default=5, help="number of rounds of global training")
     parser.add_argument('--learn_rate', type=float, default=0.005, help="model learning rate")
     parser.add_argument('--verbose', type=int, default=1, help='verbose')
     parser.add_argument('--eval_every', type=int, default=1, help='evaluate every ____ rounds;')
@@ -99,19 +98,19 @@ if __name__ == '__main__':
     print("=" * 50)
     
     if args.device == "cuda" and torch.cuda.is_available():
-        print('Using Device is: {:>20}'.format(args.device))
-        print("Count Cuda Device: {:>20}".format(torch.cuda.device_count()))
-        print("Using Cuda Device index: {:>20}".format(torch.cuda.current_device()))
+        print('Using Device is: {:}'.format(args.device))
+        print("Count Cuda Device: {:}".format(torch.cuda.device_count()))
+        print("Using Cuda Device index: {:}".format(torch.cuda.current_device()))
     else:
         args.device = 'cpu'
-        print('Using Device is: {:>20}'.format(args.device))
-
+        print('Using Device is: {:}'.format(args.device))
+    
     print("Algorithm: {}".format(args.algorithm))
     print("Dataset: {}".format(args.dataset))
     print("Model: {}".format(args.model))
     print("Global epoch: {}".format(args.global_epoch))
     print("Total number of clients: {}".format(args.num_clients))
-
+    
     print("Local epoch: {}".format(args.local_epoch))
     print("Local batch size: {}".format(args.local_bs))
     print("Local learing rate: {}".format(args.learn_rate))
@@ -120,7 +119,7 @@ if __name__ == '__main__':
     print("client randomly participates in training: {}".format(args.rc_rate))
     print("L2 norm clipping threshold: {}".format(args.norm))
     print("compression rate, 1 for no compression: {}".format(args.rate))
-
+    
     print("=" * 50)
     
     # set seeds

@@ -49,13 +49,11 @@ class FedAvg(ServerBase):
             self.update_global_params(agg_model_weight)
             self.metrics.global_epoch_time.append(time.time() - epoch_time)
             print("At Global Round {:>3}-th  Cost Time: {:>4.4f}".format(epoch + 1, time.time() - epoch_time))
-        # final evaluate model
-        self.evaluate()
         
-        print('--------------Test Final Model-----------------')
+        print('\n--------------Test Final Model-----------------')
         test_acc, test_loss = self.final_test()
         print(f"After Global Epoch Test Model: Acc: {100 * test_acc:.4f}% | Loss: {test_loss:.4f} ")
-
+        
         self.metrics.final_accuracies.append(test_acc)
         self.metrics.final_loss.append(test_loss)
     

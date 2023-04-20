@@ -12,6 +12,7 @@ import numpy as np
 import torch
 
 import warnings
+
 warnings.filterwarnings("ignore", category=UserWarning)
 
 from system.servers.serveravg import FedAvg
@@ -60,8 +61,8 @@ if __name__ == '__main__':
     parser.add_argument('--model', type=str, default='CNNMnist1', help='name of model;')
     
     # global
-    parser.add_argument('--global_epoch', type=int, default=5, help="number of rounds of global training")
-    parser.add_argument('--learn_rate', type=float, default=0.005, help="model learning rate")
+    parser.add_argument('--global_epoch', type=int, default=100, help="number of rounds of global training")
+    parser.add_argument('--learn_rate', type=float, default=0.001, help="model learning rate")
     parser.add_argument('--verbose', type=int, default=1, help='verbose')
     parser.add_argument('--eval_every', type=int, default=1, help='evaluate every ____ rounds;')
     parser.add_argument('--seed', type=int, default=0, help='seed for randomness;')
@@ -89,40 +90,39 @@ if __name__ == '__main__':
                         help='type of local randomizer: gaussian, laplace, krr')
     
     # other parameter
-    parser.add_argument('--dataiid', type=int, default=1, help="chosse dataset format")
+    parser.add_argument('--dataiid', type=int, default=3, help="chosse dataset format")
     parser.add_argument('--device', help="device is gpu or cpu", type=str, default='cuda')
     parser.add_argument('--num_clients', type=int, default=100, help="number of users: K")
     
     args = parser.parse_args()
     
-    print("=" * 50)
+    print("=" * 100)
     
     if args.device == "cuda" and torch.cuda.is_available():
-        print('Using Device is: {:}'.format(args.device))
-        print("Count Cuda Device: {:}".format(torch.cuda.device_count()))
-        print("Using Cuda Device index: {:}".format(torch.cuda.current_device()))
+        print('Using Device is: '.rjust(50), args.device)
+        print("Count Cuda Device: ".rjust(50), torch.cuda.device_count())
+        print("Using Cuda Device index: ".rjust(50), torch.cuda.current_device())
     else:
         args.device = 'cpu'
-        print('Using Device is: {:}'.format(args.device))
+        print('Using Device is: '.rjust(50), args.device)
     
-    print("Algorithm: {}".format(args.algorithm))
-    print("Dataset: {}".format(args.dataset))
-    print("Model: {}".format(args.model))
-    print("Global epoch: {}".format(args.global_epoch))
-    print("Total number of clients: {}".format(args.num_clients))
+    print("Algorithm: ".rjust(50), args.algorithm)
+    print("Dataset: ".rjust(50), args.dataset)
+    print("Model name: ".rjust(50), args.model)
+    print("Global epoch: ".rjust(50), args.global_epoch)
+    print("Total number of clients: ".rjust(50), args.num_clients)
     
-    print("Local epoch: {}".format(args.local_epoch))
-    print("Local batch size: {}".format(args.local_bs))
-    print("Local learing rate: {}".format(args.learn_rate))
-    print("random choose client number: {}".format(args.isrclient))
+    print("Local epoch: ".rjust(50), args.local_epoch)
+    print("Local batch size: ".rjust(50), args.local_bs)
+    print("Local learing rate: ".rjust(50), args.learn_rate)
     
-    print("client randomly participates in training: {}".format(args.rc_rate))
-    print("L2 norm clipping threshold: {}".format(args.norm))
-    print("compression rate, 1 for no compression: {}".format(args.rate))
+    print("Client random participation probability: ".rjust(50), args.rc_rate)
+    print("L2 norm clipping threshold: ".rjust(50), args.norm)
+    print("compression rate: ".rjust(50), args.rate)
     
-    print("=" * 50)
+    print("=" * 100)
     
-    # set seeds
+    # set random seed
     random.seed(1 + args.seed)
     np.random.seed(12 + args.seed)
     torch.manual_seed(123 + args.seed)  # 为CPU设置随机种子

@@ -29,7 +29,17 @@ class Metrics(object):
         self.all_time = []
         self.path = './result/'
     
+    def check_dir(self):
+        path = os.path.join(self.path, self.args.dataset, str(self.args.dataiid))
+        if not os.path.exists(path):
+            os.makedirs(path)
+        else:
+            print('The directory exists')
+    
     def write(self):
+        # 创建存储文件目录
+        self.check_dir()
+        
         '''write existing history records into a json file'''
         time = datetime.datetime.now().strftime("%Y%m%d%H%M")
         metrics = {}

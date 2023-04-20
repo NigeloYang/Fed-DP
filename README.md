@@ -18,11 +18,21 @@ other participants to acquire the final model collaboratively, avoiding direct d
 
 
 ## Datasets and Separation (updating)
-No instructions have been provided at this time
+This project has generated three data distributions of MNIST, Fashion-Mnist and Cifar-10, namely IID, Balanced Shards 
+partition, and Unbalanced Shards partition.
+
+For details, please see: dataset/generate_**.py
 
 
 ## How to start simulating
-No instructions have been provided at this time
+- Build dataset: [Datasets](#Datasets-and-Separation-(updating))
+
+- Train and evaluate the model:
+    ```bash
+    git clone https://github.com/NigeloYang/Fed-DP.git
+    cd Fed-DP
+    python main.py --algorithm=FedAvg --dataset=mnist --model_name=CNNMnist1 --model=CNNMnist1 # for FedAvg and MNIST
+    ```
 
 
 ## Contact

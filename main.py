@@ -29,6 +29,10 @@ def start_train(args):
     # generated model
     if args.model_name == "CNNMnist1":
         args.model = CNNMnist1().to(args.device)
+    elif args.model_name == "CNNFmnist1":
+        args.model = CNNFmnist1().to(args.device)
+    elif args.model_name == "CNNCifar1":
+        args.model = CNNCifar1().to(args.device)
     else:
         raise NotImplementedError
     

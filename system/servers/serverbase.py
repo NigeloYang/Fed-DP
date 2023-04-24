@@ -66,8 +66,8 @@ class ServerBase(object):
             return [i for i in range(self.num_clients) if np.random.random() < self.rc_rate]
         else:
             # return [i for i in range(4)]
-            return np.random.randint(0, self.num_clients, 5)
-            # return [i for i in range(self.num_clients)]
+            # return np.random.randint(0, self.num_clients, 5)
+            return [i for i in range(self.num_clients)]
     
     def send_models(self, epoch, client_id):
         send_time = time.time()
@@ -112,17 +112,16 @@ class ServerBase(object):
         test_acc = np.sum(stats_test[1]) * 1.0 / np.sum(stats_test[0])
         
         train_acc = np.sum(stats_train[1]) * 1.0 / np.sum(stats_train[0])
-        # train_loss = np.dot(stats_train[2], stats_train[0]) * 1.0 / np.sum(stats_train[0])
         train_loss = np.sum(stats_train[2]) * 1.0 / np.sum(stats_train[0])
         
         self.metrics.local_avg_train_acc.append(train_acc)
         self.metrics.local_avg_train_loss.append(train_loss)
         self.metrics.local_avg_test_acc.append(test_acc)
         
-        print("At Global {} Evaluate Model time Cost: {:.4f}".format(epoch + 1, time.time() - evaluate_time))
-        print("At Global {} Averaged Train Acc: {:.4f}".format(epoch + 1, train_acc))
-        print("At Global {} Averaged Train Loss: {:.4f}".format(epoch + 1, train_loss))
-        print("At Global {} Averaged Test Acc: {:.4f}".format(epoch + 1, test_acc))
+        print("At Global Round {} Evaluate Model time Cost: {:.4f}".format(epoch + 1, time.time() - evaluate_time))
+        print("At Global Round {} Averaged Train Acc: {:.4f}".format(epoch + 1, train_acc))
+        print("At Global Round {} Averaged Train Loss: {:.4f}".format(epoch + 1, train_loss))
+        print("At Global Round {} Averaged Test Acc: {:.4f}".format(epoch + 1, test_acc))
     
     def server_process(self, messages):
         '''

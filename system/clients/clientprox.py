@@ -1,23 +1,29 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# @Time    : 2023/4/14 11:20
-# @File    : clientavg.py
+# @Time    : 2023/4/23 21:56
+# @File    : clientprox.py
 # @Author  : Richard Yang
 import copy
 import numpy as np
 import time
-
 import torch
 import torch.nn as nn
 
 from system.clients.clientbase import ClientBase
+from system.optimizers.fedoptimizer import PerturbedGradientDescent
 from system.utils.priv_utils import *
 from system.utils.utils import sparsify
 
 
-class clientAvg(ClientBase):
+class clientProx(ClientBase):
     def __init__(self, args, id, train_dataset, label_idxs, **kwargs):
         super().__init__(args, id, train_dataset, label_idxs, **kwargs)
+        
+        self.mu = args.mu
+        self.client_params = copy.deepcopy(list(self.model.parameters()))
+        
+        self.criterion = nn.CrossEntropyLoss()
+        self.optimizer = PerturbedGradientDescent(self.model.parameters(), lr=self.learn_rate, mu=self.mu)
         
         if self.rate > 1:
             self.topk = int(self.data_len / self.rate)
@@ -50,7 +56,7 @@ class clientAvg(ClientBase):
                 loss.backward()
                 
                 # 优化参数
-                self.optimizer.step()
+                self.optimizer.step(self.client_params, self.device)
                 
                 if batch_idx % 4 == 0:
                     print(
@@ -75,3 +81,31 @@ class clientAvg(ClientBase):
             return (sparsify(flattened, self.topk))
         else:
             return flattened
+    
+    def update_client_params(self, model_weight):
+        self.model_latest = model_weight
+        self.model.load_state_dict(model_weight)
+        self.client_params = copy.deepcopy(list(self.model.parameters()))
+    
+    def train_metrics(self):
+        """ Returns the inference accuracy and loss."""
+        self.model.eval()
+        
+        size, losses, correct = 0.0, 0.0, 0.0
+        
+        with torch.no_grad():
+            for images, labels in self.local_trainloader:
+                images, labels = images.to(self.device), labels.to(self.device)
+                size += labels.shape[0]
+                
+                pred = self.model(images)
+                correct += (pred.argmax(1) == labels).type(torch.float).sum().item()
+                
+                losses = self.criterion(pred, labels)
+                
+                gm = torch.cat([p.data.view(-1) for p in self.client_params], dim=0)
+                pm = torch.cat([p.data.view(-1) for p in self.model.parameters()], dim=0)
+                losses += 0.5 * self.mu * torch.norm(gm - pm, p=2)
+                losses += losses.item()
+        
+        return correct, losses.item(), size

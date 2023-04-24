@@ -16,6 +16,7 @@ import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 
 from system.servers.serveravg import FedAvg
+from system.servers.serverprox import FedProx
 
 from system.model.models import *
 from system.utils.result_utils import Metrics
@@ -24,14 +25,15 @@ from system.utils.result_utils import Metrics
 def start_train(args):
     print('--------------------- start ------------------------')
     start = time.time()
+    model_name = args.model
     metrics = Metrics(args)
     
     # generated model
-    if args.model_name == "CNNMnist1":
+    if model_name == "CNNMnist1":
         args.model = CNNMnist1().to(args.device)
-    elif args.model_name == "CNNFmnist1":
+    elif model_name == "CNNFmnist1":
         args.model = CNNFmnist1().to(args.device)
-    elif args.model_name == "CNNCifar1":
+    elif model_name == "CNNCifar1":
         args.model = CNNCifar1().to(args.device)
     else:
         raise NotImplementedError
@@ -41,12 +43,15 @@ def start_train(args):
     # select algorithm
     if args.algorithm == 'FedAvg':
         server = FedAvg(args, metrics)
+    elif args.algorithm == 'FedProx':
+        server = FedProx(args, metrics)
     else:
         raise NotImplementedError
     
     server.train()
     
     metrics.all_time.append(time.time() - start)
+    args.model = model_name
     metrics.write()
     print(f'\n All done! All Epoch Costs Time: {time.time() - start:.2f} \n')
 
@@ -61,7 +66,6 @@ if __name__ == '__main__':
     # main setting
     parser.add_argument('--algorithm', type=str, default='FedAvg', help='name of training framework;')
     parser.add_argument('--dataset', type=str, default='mnist', help='name of dataset;')
-    parser.add_argument('--model_name', type=str, default='CNNMnist1', help='name of model;')
     parser.add_argument('--model', type=str, default='CNNMnist1', help='name of model;')
     
     # global
@@ -72,8 +76,8 @@ if __name__ == '__main__':
     parser.add_argument('--seed', type=int, default=0, help='seed for randomness;')
     
     # local
-    parser.add_argument('--local_epoch', type=int, default=3, help="number of rounds of local training")
-    parser.add_argument('--local_bs', type=int, default=32, help="local batch size")
+    parser.add_argument('--local_epoch', type=int, default=5, help="number of rounds of local training")
+    parser.add_argument('--local_bs', type=int, default=16, help="local batch size")
     
     # client rate
     parser.add_argument('--isrclient', type=bool, default=False, help="random choose client number")
@@ -97,6 +101,9 @@ if __name__ == '__main__':
     parser.add_argument('--dataiid', type=int, default=3, help="chosse dataset format")
     parser.add_argument('--device', help="device is gpu or cpu", type=str, default='cuda')
     parser.add_argument('--num_clients', type=int, default=100, help="number of users: K")
+    
+    # personalized FL parameters
+    parser.add_argument("--mu", type=float, default=0, help="Proximal rate for FedProx")
     
     args = parser.parse_args()
     

@@ -58,7 +58,29 @@ class ClientBase(object):
         
         return trainloader, testloader
     
-    def local_process(self, flattened):
+    def weight_update(self, train_weight):
+        temp_weight = {}
+        for name in train_weight:
+            temp = train_weight[name] - self.model_latest[name]
+            temp_weight.setdefault(name, temp)
+        return temp_weight
+    
+    def process_grad(self, grads):
+        # cpu 操作
+        client_grads = []
+        for name in grads:
+            # print(name,'-------',grads[name].size())
+            client_grads = np.append(client_grads, grads[name].reshape(-1).cpu())
+        return client_grads
+        
+        # # gpu 操作
+        # grads_temp = torch.tensor([]).cuda()
+        # for name in grads:
+        #     grads_temp = torch.cat((grads_temp, grads[name].reshape(-1)), dim=0)
+        #
+        # return grads_temp
+    
+    def add_noise(self, flattened):
         '''
         DO NOTHING
         1. non-private
@@ -67,6 +89,22 @@ class ClientBase(object):
         (for npsgd)
         '''
         return flattened
+    
+    def recover_model_shape(self, flattened, shape):
+        grads = {}
+        start_len = 0
+        for name, size in shape.items():
+            end_len = 1
+            for i in list(size):
+                end_len *= i
+            temp_data = flattened[start_len:start_len + end_len].reshape(list(size))
+            grads.setdefault(name, temp_data)
+            start_len = start_len + end_len
+        return grads
+    
+    def update_client_params(self, model_weight):
+        self.model.load_state_dict(model_weight)
+        self.model_latest = model_weight
     
     def train_metrics(self):
         """ Returns the inference accuracy and loss."""
@@ -101,41 +139,3 @@ class ClientBase(object):
                 correct += (pred.argmax(1) == labels).type(torch.float).sum().item()
         
         return correct, size
-    
-    def update_client_params(self, model_weight):
-        self.model.load_state_dict(model_weight)
-        self.model_latest = model_weight
-    
-    def weight_update(self, train_weight):
-        temp_weight = {}
-        for name in train_weight:
-            temp = train_weight[name] - self.model_latest[name]
-            temp_weight.setdefault(name, temp)
-        return temp_weight
-    
-    def process_grad(self, grads):
-        # cpu 操作
-        client_grads = []
-        for name in grads:
-            # print(name,'-------',grads[name].size())
-            client_grads = np.append(client_grads, grads[name].reshape(-1).cpu())
-        return client_grads
-        
-        # # gpu 操作
-        # grads_temp = torch.tensor([]).cuda()
-        # for name in grads:
-        #     grads_temp = torch.cat((grads_temp, grads[name].reshape(-1)), dim=0)
-        #
-        # return grads_temp
-    
-    def recover_model_shape(self, flattened, shape):
-        grads = {}
-        start_len = 0
-        for name, size in shape.items():
-            end_len = 1
-            for i in list(size):
-                end_len *= i
-            temp_data = flattened[start_len:start_len + end_len].reshape(list(size))
-            grads.setdefault(name, temp_data)
-            start_len = start_len + end_len
-        return grads

@@ -3,14 +3,14 @@
 # @Time    : 2023/4/13 15:45
 # @File    : generate_mnist.py
 # @Author  : Richard Yang
-
+import argparse
 import torch
 from torchvision import datasets, transforms
 
 from utils.dataset_util import balanced_iid, shard_noniid, unbanlanced_shard_noniid
 
 
-def mnist_100(dataiid, num_clients):
+def mnist_100(args):
     print('------start mnist format------')
     
     mnist = datasets.MNIST(
@@ -19,24 +19,21 @@ def mnist_100(dataiid, num_clients):
     )
     
     dir_path = 'formatdata/mnist/'
-    # num_classes = 10
-    # num_shards = 200
-    # num_imgs = 300
     
-    if dataiid == 1:
-        client = balanced_iid(dir_path, mnist, num_clients, num_classes=10)
+    if args.dataiid == 1:
+        client = balanced_iid(dir_path, mnist, args.num_clients, num_classes=args.num_classes)
         print('-----------------finished mnist iid-balanced-----------------')
         print(f'client[0]: \n {client[0]}  \n length: {len(client[0])} \n type: {type(client[0])}')
         print(f'client[1]: \n {client[1]}  \n length: {len(client[1])} \n type: {type(client[1])}')
-    elif dataiid == 2:
+    elif args.dataiid == 2:
         print('not exist unbalanced-iid')
-    elif dataiid == 3:
-        client = shard_noniid(dir_path, mnist, num_clients, num_shards=200, num_imgs=300)
+    elif args.dataiid == 3:
+        client = shard_noniid(dir_path, mnist, args.num_clients, num_shards=args.num_shard, num_imgs=args.num_img)
         print('-----------------finished mnist noniid-shard-----------------')
         print(f'client[0]: \n {client[0]}  \n length: {len(client[0])} \n type: {type(client[0])}')
         print(f'client[1]: \n {client[1]}  \n length: {len(client[1])} \n type: {type(client[1])}')
-    elif dataiid == 4:
-        client = unbanlanced_shard_noniid(dir_path, mnist, num_clients, num_shards=1200, num_imgs=50)
+    elif args.dataiid == 4:
+        client = unbanlanced_shard_noniid(dir_path, mnist, args.num_clients, num_shards=1200, num_imgs=50)
         print('-----------------finished mnist noniid-unbalanced-shard-----------------')
         print(f'client[0]: \n {client[0]}  \n length: {len(client[0])} \n type: {type(client[0])}')
         print(f'client[1]: \n {client[1]}  \n length: {len(client[1])} \n type: {type(client[1])}')
@@ -45,6 +42,14 @@ def mnist_100(dataiid, num_clients):
 
 
 if __name__ == "__main__":
-    # mnist_100(1, 100)
-    # mnist_100(3, 100)
-    mnist_100(4, 100)
+    # parse arguements
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--num_clients', type=int, default=100, help='Number of clients')
+    parser.add_argument('--num_shard', type=int, default=200, help='Shards partition, number of shards')
+    parser.add_argument('--num_img', type=int, default=300, help='Shards partition, number of images')
+    parser.add_argument('--num_classes', type=int, default=10, help='Shards partition, number of images')
+    parser.add_argument('--dataiid', type=int, default=3,
+                        help='Data distribution target,1:balanced_iid,2:unbalanced_iid...,default: 3')
+    args = parser.parse_args()
+    
+    mnist_100(args)

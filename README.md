@@ -37,7 +37,7 @@ For details, please see: dataset/generate_data.py
 
 ## How to start simulating
 
-- Build dataset: [Datasets](#Datasets and Separation (updating))
+- Build dataset: [Datasets](#Datasets and Separation) (updating)
 
 - Train and evaluate the model:
     ```bash

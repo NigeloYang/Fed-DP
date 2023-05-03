@@ -1,8 +1,5 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# @Time    : 2023/4/14 11:04
-# @File    : main.py
-# @Author  : Richard Yang
+# @Time    : 2023/4/14
 
 import os
 import argparse
@@ -17,6 +14,8 @@ warnings.filterwarnings("ignore", category=UserWarning)
 
 from system.servers.serveravg import FedAvg
 from system.servers.serverprox import FedProx
+from system.servers.servernova import FedNova
+from system.servers.serverscaffold import FedScaffold
 
 from system.model.models import *
 from system.utils.result_utils import Metrics
@@ -45,6 +44,10 @@ def start_train(args):
         server = FedAvg(args, metrics)
     elif args.algorithm == 'FedProx':
         server = FedProx(args, metrics)
+    elif args.algorithm == 'FedNova':
+        server = FedNova(args, metrics)
+    elif args.algorithm == 'FedScaffold':
+        server = FedScaffold(args, metrics)
     else:
         raise NotImplementedError
     
@@ -63,32 +66,28 @@ if __name__ == '__main__':
     # parse arguements
     parser = argparse.ArgumentParser()
     
-    # main setting
+    # model setting
     parser.add_argument('--algorithm', type=str, default='FedAvg', help='name of training framework;')
     parser.add_argument('--dataset', type=str, default='mnist', help='name of dataset;')
     parser.add_argument('--model', type=str, default='CNNMnist1', help='name of model;')
-    
-    # global
     parser.add_argument('--global_epoch', type=int, default=100, help="number of rounds of global training")
-    parser.add_argument('--learn_rate', type=float, default=0.001, help="model learning rate")
+    parser.add_argument('--server_learn_rate', type=float, default=1.0, help="model learning rate")
+    parser.add_argument('--local_epoch', type=int, default=5, help="number of rounds of local training")
+    parser.add_argument('--local_learn_rate', type=float, default=0.001, help="model learning rate")
+    parser.add_argument('--local_bs', type=int, default=16, help="local batch size")
     parser.add_argument('--verbose', type=int, default=1, help='verbose')
     parser.add_argument('--eval_every', type=int, default=1, help='evaluate every ____ rounds;')
-    parser.add_argument('--seed', type=int, default=0, help='seed for randomness;')
-    
-    # local
-    parser.add_argument('--local_epoch', type=int, default=5, help="number of rounds of local training")
-    parser.add_argument('--local_bs', type=int, default=16, help="local batch size")
     
     # client rate
+    parser.add_argument('--num_clients', type=int, default=100, help="number of users: K")
     parser.add_argument('--isrclient', type=bool, default=False, help="random choose client number")
     parser.add_argument('--rc_rate', type=float, default=0.75,
                         help="The ratio which the client randomly participates in training")
+    parser.add_argument('--dataiid', type=int, default=5, help="chosse dataset format")
     
-    # for sparsification
+    # for sparsification padding
     parser.add_argument('--norm', type=float, default=10, help='L2 norm clipping threshold')
     parser.add_argument('--rate', type=int, default=1, help='compression rate, 1 for no compression')
-    
-    # for padding
     parser.add_argument('--mp_rate', type=float, default=1, help='under factor for mp=m/mp_rate')
     
     # Differential privay
@@ -96,14 +95,15 @@ if __name__ == '__main__':
     parser.add_argument('--epsilon', type=float, default=0.81251, help='use dp with train. dp, ldp, RDP')
     parser.add_argument('--mechanism', type=str, default='gaussian',
                         help='type of local randomizer: gaussian, laplace, krr')
-    
-    # other parameter
-    parser.add_argument('--dataiid', type=int, default=3, help="chosse dataset format")
-    parser.add_argument('--device', help="device is gpu or cpu", type=str, default='cuda')
-    parser.add_argument('--num_clients', type=int, default=100, help="number of users: K")
+    parser.add_argument('--isdiydp', type=bool, default=False, help='DIY adds DP')
+    parser.add_argument('--isopacus', type=bool, default=False, help='using opacus adds DP')
     
     # personalized FL parameters
-    parser.add_argument("--mu", type=float, default=0, help="Proximal rate for FedProx")
+    parser.add_argument("--mu", type=float, default=0.01, help="Proximal rate for FedProx")
+    
+    # Others parameters
+    parser.add_argument('--seed', type=int, default=0, help='seed for randomness;')
+    parser.add_argument('--device', help="device is gpu or cpu", type=str, default='cuda')
     
     args = parser.parse_args()
     
@@ -122,10 +122,9 @@ if __name__ == '__main__':
     print("Model name: ".rjust(50), args.model)
     print("Global epoch: ".rjust(50), args.global_epoch)
     print("Total number of clients: ".rjust(50), args.num_clients)
-    
     print("Local epoch: ".rjust(50), args.local_epoch)
     print("Local batch size: ".rjust(50), args.local_bs)
-    print("Local learing rate: ".rjust(50), args.learn_rate)
+    print("Local learning rate: ".rjust(50), args.local_learn_rate)
     
     print("Client random participation probability: ".rjust(50), args.rc_rate)
     print("L2 norm clipping threshold: ".rjust(50), args.norm)

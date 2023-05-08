@@ -96,7 +96,7 @@ def balance_homo_partition(dir_path, dataset, num_clients, alpha=0.3):
     client_indices_pairs = [(cid, idxs.tolist()) for cid, idxs in enumerate(np.split(rand_perm, num_cumsum)[:-1])]
     clients = dict(client_indices_pairs)
     
-    with open(dir_path + 'iid_{}_{}.json'.format('balance_homo', num_clients), 'w') as f:
+    with open(dir_path + 'iid_{}_{}.json'.format('balanced_homo', num_clients), 'w') as f:
         json.dump(clients, f)
         print('finish write dataset')
     
@@ -132,7 +132,7 @@ def unbalance_homo_partition(dir_path, dataset, num_clients, sigma, alpha=0.3):
     client_indices_pairs = [(cid, idxs.tolist()) for cid, idxs in enumerate(np.split(rand_perm, num_cumsum)[:-1])]
     clients = dict(client_indices_pairs)
     
-    with open(dir_path + 'iid_{}_{}.json'.format('unbalance_homo', num_clients), 'w') as f:
+    with open(dir_path + 'iid_{}_{}.json'.format('unbalanced_homo', num_clients), 'w') as f:
         json.dump(clients, f)
         print('finish write dataset')
     

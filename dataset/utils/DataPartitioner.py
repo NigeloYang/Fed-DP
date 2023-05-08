@@ -116,8 +116,8 @@ class DataPartitioner(object):
         distri_id -= 1
         
         data_tri_name = ['Non-IID-Shard', 'Non-IID-Unequal-Shard', 'Non-IID-Quantity-Based-Label-Distribution',
-                         'Non-IID-Hetero-Dirichlet', 'IID-Balanced', 'Non-IID-Balanced-Dirichlet', 'IID-Balance-Homo',
-                         'IID-Unbalanced', 'Non-IID-Unbalanced-Dirichlet', 'IID-Unbalance-Homo']
+                         'Non-IID-Hetero-Dirichlet', 'IID-Balanced', 'Non-IID-Balanced-Dirichlet', 'IID-Balanced-Homo',
+                         'IID-Unbalanced', 'Non-IID-Unbalanced-Dirichlet', 'IID-Unbalanced-Homo']
         
         if self.dataplot == 1:
             plt.figure(figsize=(20, 6))  # 3

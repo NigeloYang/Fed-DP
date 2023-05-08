@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 # @Time    : 2023/4/23
-
 import copy
 import numpy as np
 import time
@@ -9,6 +8,7 @@ import torch
 from system.clients.clientbase import ClientBase
 from system.optimizers.fedoptimizer import FedProxOptimizer
 from system.utils.priv_utils import *
+
 
 class clientProx(ClientBase):
     def __init__(self, args, id, train_dataset, label_idxs, **kwargs):
@@ -89,7 +89,7 @@ class clientProx(ClientBase):
     def train_metrics(self):
         """ Returns the inference accuracy and loss."""
         self.model.eval()
-
+        
         size, correct = 0.0, 0.0
         losses = []
         
@@ -106,5 +106,5 @@ class clientProx(ClientBase):
                 pm = torch.cat([p.data.view(-1) for p in self.model.parameters()], dim=0)
                 loss += 0.5 * self.mu * torch.norm(gm - pm, p=2)
                 losses.append(loss.item())
-
+        
         return correct, sum(losses) / len(losses), size

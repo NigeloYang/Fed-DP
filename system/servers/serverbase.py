@@ -2,17 +2,18 @@
 # @Time    : 2023/4/14
 
 import math
+
 import torch
 import os
 import numpy as np
 import copy
 import time
 import random
-
 from torch.utils.data import DataLoader
 
 from system.utils.data_utils import get_dataset
 from system.utils.utils import transform
+from system.utils.data_utils import DatasetSplit
 
 
 class ServerBase(object):
@@ -36,6 +37,7 @@ class ServerBase(object):
         self.data_iid = args.dataiid
         self.device = args.device
         self.rate = args.rate
+        self.istest = args.istest
         
         self.clients = []
         self.selected_clients = []
@@ -80,11 +82,11 @@ class ServerBase(object):
             list of Clients
         '''
         if self.isrclient:
-            # return [i for i in range(50) if np.random.random() < self.rc_rate]
             return [i for i in range(self.num_clients) if np.random.random() < self.rc_rate]
-        else:
-            # return [i for i in range(4)]
+        elif self.istest:
             # return np.random.randint(0, self.num_clients, 3)
+            return [1, 2, 3]
+        else:
             return [i for i in range(self.num_clients)]
     
     def send_models(self, epoch, client_id):

@@ -1,6 +1,8 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# @Time    : 2023/4/14
-
+# @Time    : 2023/4/14 11:07
+# @File    : result_utils.py
+# @Author  : Richard Yang
 import datetime
 import json
 import os
@@ -50,7 +52,8 @@ class Metrics(object):
         metrics['model_name'] = self.args.model
         metrics['global_epoch'] = self.args.global_epoch
         metrics['eval_every'] = self.args.eval_every
-        metrics['learn_rate'] = self.args.learn_rate
+        metrics['local_learn_rate'] = self.args.local_learn_rate
+        metrics['server_learn_rate'] = self.args.server_learn_rate
         metrics['local_epoch'] = self.args.local_epoch
         metrics['batch_size'] = self.args.local_bs
         metrics['num_clients'] = self.args.num_clients
@@ -79,7 +82,7 @@ class Metrics(object):
         metrics_dir = os.path.join(self.path, self.args.dataset, str(self.args.dataiid),
                                    '{}_{}_{}_{}_{}_{}_{}_{}_{}_{}_{}_{}.json'.format(self.args.dataset,
                                                                                      self.args.algorithm,
-                                                                                     self.args.learn_rate,
+                                                                                     self.args.local_learn_rate,
                                                                                      self.args.num_clients,
                                                                                      self.args.epsilon,
                                                                                      self.args.delta,

@@ -1,8 +1,12 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# @Time    : 2023/4/14
+# @Time    : 2023/4/14 9:23
+# @File    : data_utils.py
+# @Author  : Richard Yang
 
 import json
 import os
+
 import torch
 from torchvision import datasets, transforms
 from torch.utils.data import Dataset
@@ -42,13 +46,13 @@ def get_dataset(dataset_name, data_iid, num_users, args):
         train_dataset = datasets.CIFAR10(source_data, train=True, download=True, transform=train)
         test_dataset = datasets.CIFAR10(source_data, train=False, download=True, transform=test)
         if data_iid == 1:
-            file = open(format_data + 'iid_balanced_homo_%s.json' % num_users, 'rb')
+            file = open(format_data + 'iid_balanced_%s.json' % num_users, 'rb')
         elif data_iid == 2:
-            file = open(format_data + 'iid_balanced_%s.json' % num_users, 'rb')
+            file = open(format_data + 'iid_balanced_homo_%s.json' % num_users, 'rb')
         elif data_iid == 3:
-            file = open(format_data + 'iid_unbalanced_homo_%s.json' % num_users, 'rb')
+            file = open(format_data + 'iid_unbalanced_%s.json' % num_users, 'rb')
         elif data_iid == 4:
-            file = open(format_data + 'iid_balanced_%s.json' % num_users, 'rb')
+            file = open(format_data + 'iid_unbalance_homo_%s.json' % num_users, 'rb')
         elif data_iid == 5:
             file = open(format_data + 'noniid_balanced_dirichlet_%s.json' % num_users, 'rb')
         elif data_iid == 6:
@@ -63,7 +67,7 @@ def get_dataset(dataset_name, data_iid, num_users, args):
             file = open(format_data + 'noniid_unbalanced_shard_%s.json' % num_users, 'rb')
         else:
             exit('Error: no others dataset format')
-            
+        
         client_groups = json.load(file)
         return train_dataset, test_dataset, client_groups
     elif dataset_name == 'mnist':
@@ -74,13 +78,13 @@ def get_dataset(dataset_name, data_iid, num_users, args):
         train_dataset = datasets.MNIST(source_data, train=True, download=True, transform=apply_transform)
         test_dataset = datasets.MNIST(source_data, train=False, download=True, transform=apply_transform)
         if data_iid == 1:
-            file = open(format_data + 'iid_balance_homo_%s.json' % num_users, 'rb')
-        elif data_iid == 2:
             file = open(format_data + 'iid_balanced_%s.json' % num_users, 'rb')
+        elif data_iid == 2:
+            file = open(format_data + 'iid_balanced_homo_%s.json' % num_users, 'rb')
         elif data_iid == 3:
-            file = open(format_data + 'iid_unbalance_homo_%s.json' % num_users, 'rb')
-        elif data_iid == 4:
             file = open(format_data + 'iid_unbalanced_%s.json' % num_users, 'rb')
+        elif data_iid == 4:
+            file = open(format_data + 'iid_unbalance_homo_%s.json' % num_users, 'rb')
         elif data_iid == 5:
             file = open(format_data + 'noniid_balanced_dirichlet_%s.json' % num_users, 'rb')
         elif data_iid == 6:
@@ -95,7 +99,7 @@ def get_dataset(dataset_name, data_iid, num_users, args):
             file = open(format_data + 'noniid_unbalanced_shard_%s.json' % num_users, 'rb')
         else:
             exit('Error: no others dataset format')
-
+        
         client_groups = json.load(file)
         return train_dataset, test_dataset, client_groups
     elif dataset_name == 'fmnist':
@@ -107,17 +111,28 @@ def get_dataset(dataset_name, data_iid, num_users, args):
         test_dataset = datasets.FashionMNIST(source_data, train=False, download=True, transform=apply_transform)
         if data_iid == 1:
             file = open(format_data + 'iid_balanced_%s.json' % num_users, 'rb')
-            client_groups = json.load(file)
         elif data_iid == 2:
-            print('not exist unbalanced-iid')
+            file = open(format_data + 'iid_balanced_homo_%s.json' % num_users, 'rb')
         elif data_iid == 3:
-            file = open(format_data + 'noniid_shard_%s.json' % num_users, 'rb')
-            client_groups = json.load(file)
+            file = open(format_data + 'iid_unbalanced_%s.json' % num_users, 'rb')
         elif data_iid == 4:
+            file = open(format_data + 'iid_unbalance_homo_%s.json' % num_users, 'rb')
+        elif data_iid == 5:
+            file = open(format_data + 'noniid_balanced_dirichlet_%s.json' % num_users, 'rb')
+        elif data_iid == 6:
+            file = open(format_data + 'noniid_hetero_dirichlet_%s.json' % num_users, 'rb')
+        elif data_iid == 7:
+            file = open(format_data + 'noniid_quantity_label_%s.json' % num_users, 'rb')
+        elif data_iid == 8:
+            file = open(format_data + 'noniid_shard_%s.json' % num_users, 'rb')
+        elif data_iid == 9:
+            file = open(format_data + 'noniid_unbalanced_dirichlet_%s.json' % num_users, 'rb')
+        elif data_iid == 10:
             file = open(format_data + 'noniid_unbalanced_shard_%s.json' % num_users, 'rb')
-            client_groups = json.load(file)
         else:
             exit('Error: no others dataset format')
+        
+        client_groups = json.load(file)
         return train_dataset, test_dataset, client_groups
     else:
         exit('Error: no others dataset')

@@ -38,12 +38,12 @@ class FedProx(ServerBase):
             for client_id in self.selected_clients:
                 # send global model
                 self.send_models(epoch, client_id)
-    
+                
                 # local iteration train
                 noise_model, sample_len = self.clients[client_id].train(client_id, epoch, self.metrics)
                 client_models.append(noise_model)
                 client_sample_lens.append(sample_len)
-
+            
             ############ server process / weight process / rceive model ###########
             agg_client_model = self.server_process(client_models, client_sample_lens)
             self.update_global_params(agg_client_model)

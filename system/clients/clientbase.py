@@ -18,7 +18,7 @@ class ClientBase(object):
         
         # Set optimizer for the local updates
         self.model = copy.deepcopy(args.model)
-        self.latest_global_model = self.model.parameters()
+        self.latest_global_model = copy.deepcopy(list(self.model.parameters()))
         self.local_epoch = args.local_epoch
         self.learn_rate = args.local_learn_rate
         self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.learn_rate)
@@ -71,10 +71,10 @@ class ClientBase(object):
     
     ############################# model interpolation/noise ##############################
     def weight_interpolation(self, train_model):
-        temp_weight = []
+        delta_model = []
         for train_w, latest_client_w in zip(train_model, self.latest_global_model):
-            temp_weight.append(train_w.data - latest_client_w.data)
-        return temp_weight
+            delta_model.append(train_w.data - latest_client_w.data)
+        return delta_model
     
     def process_grad(self, delta_client_model):
         client_grads = []
@@ -95,7 +95,6 @@ class ClientBase(object):
         1. non-private
         2. no clipping
         3. no sparsification
-        (for npsgd)
         '''
         if self.rate > 1:
             return (sparsify(flattened, self.topk))
@@ -120,7 +119,7 @@ class ClientBase(object):
                 loss = self.criterion(pred, labels)
                 losses.append(loss.item())
         
-        return correct, sum(losses)/len(losses), size
+        return correct, sum(losses) / len(losses), size
     
     def test_metrics(self):
         """ Returns the inference accuracy and loss."""

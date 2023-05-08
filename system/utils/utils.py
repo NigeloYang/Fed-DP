@@ -1,6 +1,3 @@
-# -*- coding: utf-8 -*-
-# @Time    : 2023/4/14
-
 import pickle
 import numpy as np
 
@@ -60,7 +57,7 @@ def clip(updates, threshold):
     input
         updates: 1-D vector
         threshold: L2 norm
-  
+
     return:
         clipped 1-D vector
     '''

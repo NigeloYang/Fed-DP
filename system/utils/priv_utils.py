@@ -1,13 +1,10 @@
-# -*- coding: utf-8 -*-
-# @Time    : 2023/4/14
-
 import time
 import numpy as np
 import math
 
-from opacus import PrivacyEngine
-
 from system.utils.utils import transform
+
+from opacus import PrivacyEngine
 
 
 #################################ADD NOISE#######################################
@@ -69,35 +66,6 @@ def sampling_randomizer(vector, choices, clip_C, eps, delta, mechanism, left=0, 
             vector[i] = 0
     print('sampling_randomizer cpu time: {:.4f}'.format(time.time() - start))
     return vector
-    
-    # # cuda
-    # start = time.time()
-    # # print(type(choices))
-    # # print(type(vector))
-    # # print(vector[0], vector[144], vector[159], vector[401567])
-    # vector = torch.clamp(torch.from_numpy(vector).cuda(), -clip_C, clip_C)
-    # # print(type(vector))
-    # # print(vector[0], vector[144], vector[159], vector[401567])
-    #
-    # gauss_noise = one_gaussian(eps, delta, right - left)
-    # laplace_noise = one_laplace(eps, right - left)
-    # for i, v in enumerate(vector):
-    #     if i in choices:
-    #         normalize_v = transform(v.item(), -clip_C, clip_C, left, right)
-    #         if mechanism == 'gaussian':
-    #             v *= 0
-    #             v += normalize_v + gauss_noise
-    #         elif mechanism == 'laplace':
-    #             v *= 0
-    #             v += normalize_v + laplace_noise
-    #     else:
-    #         v *= 0
-    # # print(type(vector))
-    # # print(vector[0], vector[144], vector[159], vector[401567])
-    # end = time.time()
-    # print('gpu sampling_randomizer time:', end - start)
-    # return vector.cpu()
-
 
 
 MAX_GRAD_NORM = 1.0
@@ -109,10 +77,10 @@ def initialize_dp(model, optimizer, data_loader, dp_sigma):
         module=model,
         optimizer=optimizer,
         data_loader=data_loader,
-        noise_multiplier = dp_sigma,
-        max_grad_norm = MAX_GRAD_NORM,
+        noise_multiplier=dp_sigma,
+        max_grad_norm=MAX_GRAD_NORM,
     )
-
+    
     return model, optimizer, data_loader, privacy_engine
 
 

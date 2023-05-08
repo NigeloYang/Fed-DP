@@ -83,6 +83,6 @@ class FedNova(ServerBase):
         for client_model in client_models:
             for i, client_m in enumerate(client_model):
                 agg_model[i] = agg_model[i] + avg_batch * (client_m * sample_lens[sample_id]) / (
-                        total_sample * client_batches[sample_id])
+                    total_sample * client_batches[sample_id])
             sample_id += 1
         return agg_model

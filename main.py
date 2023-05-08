@@ -16,6 +16,7 @@ from system.servers.serveravg import FedAvg
 from system.servers.serverprox import FedProx
 from system.servers.servernova import FedNova
 from system.servers.serverscaffold import FedScaffold
+from system.servers.servermoon import FedMoon
 
 from system.model.models import *
 from system.utils.result_utils import Metrics
@@ -48,6 +49,8 @@ def start_train(args):
         server = FedNova(args, metrics)
     elif args.algorithm == 'FedScaffold':
         server = FedScaffold(args, metrics)
+    elif args.algorithm == 'FedMoon':
+        server = FedMoon(args, metrics)
     else:
         raise NotImplementedError
     
@@ -68,13 +71,14 @@ if __name__ == '__main__':
     
     # model setting
     parser.add_argument('--algorithm', type=str, default='FedAvg', help='name of training framework;')
-    parser.add_argument('--dataset', type=str, default='mnist', help='name of dataset;')
-    parser.add_argument('--model', type=str, default='CNNMnist1', help='name of model;')
+    parser.add_argument('--dataset', type=str, default='fmnist', help='name of dataset;')
+    parser.add_argument('--model', type=str, default='CNNFmnist1', help='name of model;')
     parser.add_argument('--global_epoch', type=int, default=100, help="number of rounds of global training")
-    parser.add_argument('--server_learn_rate', type=float, default=1.0, help="model learning rate")
+    parser.add_argument('--server_learn_rate', type=float, default=0.005, help="model learning rate")
     parser.add_argument('--local_epoch', type=int, default=5, help="number of rounds of local training")
-    parser.add_argument('--local_learn_rate', type=float, default=0.001, help="model learning rate")
+    parser.add_argument('--local_learn_rate', type=float, default=0.01, help="model learning rate")
     parser.add_argument('--local_bs', type=int, default=16, help="local batch size")
+    parser.add_argument('--dataiid', type=int, default=1, help="chosse dataset format")
     parser.add_argument('--verbose', type=int, default=1, help='verbose')
     parser.add_argument('--eval_every', type=int, default=1, help='evaluate every ____ rounds;')
     
@@ -83,12 +87,11 @@ if __name__ == '__main__':
     parser.add_argument('--isrclient', type=bool, default=False, help="random choose client number")
     parser.add_argument('--rc_rate', type=float, default=0.75,
                         help="The ratio which the client randomly participates in training")
-    parser.add_argument('--dataiid', type=int, default=5, help="chosse dataset format")
     
     # for sparsification padding
     parser.add_argument('--norm', type=float, default=10, help='L2 norm clipping threshold')
     parser.add_argument('--rate', type=int, default=1, help='compression rate, 1 for no compression')
-    parser.add_argument('--mp_rate', type=float, default=1, help='under factor for mp=m/mp_rate')
+    parser.add_argument('--mp_rate', type=float, default=2, help='under factor for mp=m/mp_rate')
     
     # Differential privay
     parser.add_argument('--delta', type=float, default=5e-6, help='use dp with train. dp, ldp, RDP')
@@ -99,12 +102,13 @@ if __name__ == '__main__':
     parser.add_argument('--isopacus', type=bool, default=False, help='using opacus adds DP')
     
     # personalized FL parameters
-    parser.add_argument("--mu", type=float, default=0.01, help="Proximal rate for FedProx")
+    parser.add_argument("--mu", type=float, default=0.01, help="Proximal rate for paper FedProx")
+    parser.add_argument("--tau", type=float, default=1.0, help="ratio for paper moon")
     
     # Others parameters
     parser.add_argument('--seed', type=int, default=0, help='seed for randomness;')
     parser.add_argument('--device', help="device is gpu or cpu", type=str, default='cuda')
-    
+    parser.add_argument('--istest', type=bool, default=False, help="test fastly model")
     args = parser.parse_args()
     
     print("=" * 100)
@@ -125,6 +129,7 @@ if __name__ == '__main__':
     print("Local epoch: ".rjust(50), args.local_epoch)
     print("Local batch size: ".rjust(50), args.local_bs)
     print("Local learning rate: ".rjust(50), args.local_learn_rate)
+    print("dataset distribution: ".rjust(50), args.dataiid)
     
     print("Client random participation probability: ".rjust(50), args.rc_rate)
     print("L2 norm clipping threshold: ".rjust(50), args.norm)

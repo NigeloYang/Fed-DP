@@ -1,18 +1,19 @@
 # -*- coding: utf-8 -*-
 # @Time    : 2023/4/14
 
+import copy
 import os
 import argparse
 import random
 import time
 import numpy as np
 import torch
-
 import warnings
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
 from system.servers.serveravg import FedAvg
+from system.servers.serverflame import FedFlame
 from system.servers.serverprox import FedProx
 from system.servers.servernova import FedNova
 from system.servers.serverscaffold import FedScaffold
@@ -29,12 +30,12 @@ def start_train(args):
     metrics = Metrics(args)
     
     # generated model
-    if model_name == "CNNMnist1":
-        args.model = CNNMnist1().to(args.device)
-    elif model_name == "CNNFmnist1":
-        args.model = CNNFmnist1().to(args.device)
-    elif model_name == "CNNCifar1":
-        args.model = CNNCifar1().to(args.device)
+    if model_name == "CNNMnist":
+        args.model = CNNMnist().to(args.device)
+    elif model_name == "CNNFmnist":
+        args.model = CNNFmnist().to(args.device)
+    elif model_name == "CNNCifar10":
+        args.model = CNNCifar10().to(args.device)
     else:
         raise NotImplementedError
     
@@ -43,6 +44,8 @@ def start_train(args):
     # select algorithm
     if args.algorithm == 'FedAvg':
         server = FedAvg(args, metrics)
+    elif args.algorithm == 'FedFlame':
+        server = FedFlame(args, metrics)
     elif args.algorithm == 'FedProx':
         server = FedProx(args, metrics)
     elif args.algorithm == 'FedNova':
@@ -50,6 +53,9 @@ def start_train(args):
     elif args.algorithm == 'FedScaffold':
         server = FedScaffold(args, metrics)
     elif args.algorithm == 'FedMoon':
+        head = copy.deepcopy(args.model.fc)
+        args.model.fc = nn.Identity()
+        args.model = BaseHeadSplit(args.model, head)
         server = FedMoon(args, metrics)
     else:
         raise NotImplementedError
@@ -78,41 +84,50 @@ if __name__ == '__main__':
     parser.add_argument('--local_epoch', type=int, default=5, help="number of rounds of local training")
     parser.add_argument('--local_learn_rate', type=float, default=0.01, help="model learning rate")
     parser.add_argument('--local_bs', type=int, default=16, help="local batch size")
-    parser.add_argument('--dataiid', type=int, default=1, help="chosse dataset format")
+    parser.add_argument('--dataiid', type=int, default=6, help="chosse dataset format")
+    parser.add_argument('--major_classes_num', type=int, default=3,
+                        help="lable distribution skew,1: class 1, 2:class 2")
     parser.add_argument('--verbose', type=int, default=1, help='verbose')
     parser.add_argument('--eval_every', type=int, default=1, help='evaluate every ____ rounds;')
-    
+
     # client rate
     parser.add_argument('--num_clients', type=int, default=100, help="number of users: K")
-    parser.add_argument('--isrclient', type=bool, default=False, help="random choose client number")
-    parser.add_argument('--rc_rate', type=float, default=0.75,
+    parser.add_argument('--rclient', type=bool, default=False, help="random choose client number")
+    parser.add_argument('--rc_rate', type=float, default=1.1,
                         help="The ratio which the client randomly participates in training")
-    
-    # for sparsification padding
-    parser.add_argument('--norm', type=float, default=10, help='L2 norm clipping threshold')
-    parser.add_argument('--rate', type=int, default=1, help='compression rate, 1 for no compression')
-    parser.add_argument('--mp_rate', type=float, default=2, help='under factor for mp=m/mp_rate')
-    
+    parser.add_argument("--train_slow", type=float, default=0.0,
+                        help="The rate for slow clients when training locally")
+    parser.add_argument("--send_slow", type=float, default=0.0,
+                        help="The rate for slow clients when sending global model")
+
     # Differential privay
+    parser.add_argument('--diyldp', type=bool, default=False, help='DIY adds LDP')
+    parser.add_argument('--diycdp', type=bool, default=False, help='DIY adds CDP')
+    parser.add_argument('--opacus', type=bool, default=False, help='using opacus adds DP')
+    parser.add_argument('--epsilon', type=float, default=1, help='use dp with train. dp, ldp, RDP')
     parser.add_argument('--delta', type=float, default=5e-6, help='use dp with train. dp, ldp, RDP')
-    parser.add_argument('--epsilon', type=float, default=0.81251, help='use dp with train. dp, ldp, RDP')
-    parser.add_argument('--mechanism', type=str, default='gaussian',
+    parser.add_argument('--mechanism', type=str, default='laplace',
                         help='type of local randomizer: gaussian, laplace, krr')
-    parser.add_argument('--isdiydp', type=bool, default=False, help='DIY adds DP')
-    parser.add_argument('--isopacus', type=bool, default=False, help='using opacus adds DP')
-    
-    # personalized FL parameters
+
+    # sparsification technology
+    parser.add_argument('--clip_c', type=float, default=0.05, help='L2 norm clipping threshold')
+    parser.add_argument('--com_rate', type=int, default=5, help='parameters compression rate, 1 for no compression')
+    parser.add_argument('--mp_rate', type=float, default=1, help='under factor for mp=m/mp_rate')
+
+    # paper parameters in PFL
     parser.add_argument("--mu", type=float, default=0.01, help="Proximal rate for paper FedProx")
-    parser.add_argument("--tau", type=float, default=1.0, help="ratio for paper moon")
+    parser.add_argument("--tau", type=float, default=1.0, help="ratio for paper MOON")
     
+
     # Others parameters
     parser.add_argument('--seed', type=int, default=0, help='seed for randomness;')
     parser.add_argument('--device', help="device is gpu or cpu", type=str, default='cuda')
-    parser.add_argument('--istest', type=bool, default=False, help="test fastly model")
+    parser.add_argument('--test', type=bool, default=True, help="test model")
+
     args = parser.parse_args()
-    
+
     print("=" * 100)
-    
+
     if args.device == "cuda" and torch.cuda.is_available():
         print('Using Device is: '.rjust(50), args.device)
         print("Count Cuda Device: ".rjust(50), torch.cuda.device_count())
@@ -120,7 +135,7 @@ if __name__ == '__main__':
     else:
         args.device = 'cpu'
         print('Using Device is: '.rjust(50), args.device)
-    
+
     print("Algorithm: ".rjust(50), args.algorithm)
     print("Dataset: ".rjust(50), args.dataset)
     print("Model name: ".rjust(50), args.model)
@@ -130,17 +145,17 @@ if __name__ == '__main__':
     print("Local batch size: ".rjust(50), args.local_bs)
     print("Local learning rate: ".rjust(50), args.local_learn_rate)
     print("dataset distribution: ".rjust(50), args.dataiid)
-    
+
     print("Client random participation probability: ".rjust(50), args.rc_rate)
-    print("L2 norm clipping threshold: ".rjust(50), args.norm)
-    print("compression rate: ".rjust(50), args.rate)
-    
+    print("L2 norm clipping threshold: ".rjust(50), args.clip_c)
+    print("compression rate: ".rjust(50), args.com_rate)
+
     print("=" * 100)
-    
+
     # set random seed
     random.seed(1 + args.seed)
     np.random.seed(12 + args.seed)
     torch.manual_seed(123 + args.seed)  # 为CPU设置随机种子
     torch.cuda.manual_seed(123 + args.seed)
-    
+
     start_train(args)

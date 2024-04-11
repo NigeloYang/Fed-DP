@@ -42,13 +42,13 @@ def sparsify(updates, topk):
     return updates
 
 
-def topindex(updates, topk):
+def topindex(model_params, topk):
     '''
     return top=k indexes
     '''
     
-    d = updates.size
-    return np.argsort(np.abs(updates))[d - topk:]
+    d = model_params.size
+    return np.argsort(np.abs(model_params))[d - topk:]
 
 
 def clip(updates, threshold):

@@ -4,6 +4,40 @@ import torch.nn.functional as F
 from torchinfo import summary
 
 
+class BaseHeadSplit(nn.Module):
+    def __init__(self, base, head):
+        super(BaseHeadSplit, self).__init__()
+        
+        self.base = base
+        self.head = head
+    
+    def forward(self, x):
+        out = self.base(x)
+        out = self.head(out)
+        
+        return out
+
+
+class CNNMnist(nn.Module):
+    def __init__(self):
+        super(CNNMnist, self).__init__()
+        self.conv1 = nn.Conv2d(1, 6, 5)
+        self.pool = nn.MaxPool2d(2, 2)
+        self.conv2 = nn.Conv2d(6, 16, 5)
+        self.fc1 = nn.Linear(16 * 4 * 4, 120)
+        self.fc2 = nn.Linear(120, 84)
+        self.fc = nn.Linear(84, 10)
+    
+    def forward(self, x):
+        x = self.pool(F.relu(self.conv1(x)))
+        x = self.pool(F.relu(self.conv2(x)))
+        x = x.view(-1, 16 * 4 * 4)
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = self.fc(x)
+        return x
+
+
 class CNNMnist1(nn.Module):
     def __init__(self):
         super(CNNMnist1, self).__init__()
@@ -41,15 +75,15 @@ class CNNMnist2(nn.Module):
         return F.log_softmax(x, dim=1)
 
 
-class CNNFmnist1(nn.Module):
+class CNNFmnist(nn.Module):
     def __init__(self):
-        super(CNNFmnist1, self).__init__()
+        super(CNNFmnist, self).__init__()
         self.conv1 = nn.Conv2d(1, 6, 5)
         self.pool = nn.MaxPool2d(2, 2)
         self.conv2 = nn.Conv2d(6, 16, 5)
         self.fc1 = nn.Linear(16 * 4 * 4, 120)
         self.fc2 = nn.Linear(120, 84)
-        self.fc3 = nn.Linear(84, 10)
+        self.fc = nn.Linear(84, 10)
     
     def forward(self, x):
         x = self.pool(F.relu(self.conv1(x)))
@@ -57,7 +91,7 @@ class CNNFmnist1(nn.Module):
         x = x.view(-1, 16 * 4 * 4)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
-        x = self.fc3(x)
+        x = self.fc(x)
         return x
 
 
@@ -77,15 +111,15 @@ class CNNFmnist2(nn.Module):
         return F.log_softmax(x, dim=1)
 
 
-class CNNCifar1(nn.Module):
+class CNNCifar10(nn.Module):
     def __init__(self):
-        super(CNNCifar1, self).__init__()
+        super(CNNCifar10, self).__init__()
         self.conv1 = nn.Conv2d(3, 6, 5)
         self.pool = nn.MaxPool2d(2, 2)
         self.conv2 = nn.Conv2d(6, 16, 5)
         self.fc1 = nn.Linear(16 * 5 * 5, 200)
         self.fc2 = nn.Linear(200, 84)
-        self.fc3 = nn.Linear(84, 10)
+        self.fc = nn.Linear(84, 10)
     
     def forward(self, x):
         x = self.pool(F.relu(self.conv1(x)))
@@ -93,8 +127,8 @@ class CNNCifar1(nn.Module):
         x = x.view(-1, 16 * 5 * 5)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
-        x = self.fc3(x)
-        return F.log_softmax(x, dim=1)
+        x = self.fc(x)
+        return x
 
 
 class CNNCifar2(nn.Module):
@@ -150,6 +184,12 @@ class CNNCifar3(nn.Module):
 
 
 if __name__ == '__main__':
+    print('\n ----------------mnist--------------------- \n')
+    mnist = CNNMnist()
+    for name, parameter in mnist.named_parameters():
+        print(f'name: {name} --- parameter size: {parameter.size()}')
+    summary(mnist, input_size=(1, 1, 28, 28))
+    
     print('\n ----------------mnist 1--------------------- \n')
     mnist1 = CNNMnist1()
     for name, parameter in mnist1.named_parameters():
@@ -163,7 +203,7 @@ if __name__ == '__main__':
     summary(mnist2, input_size=(1, 1, 28, 28))
     
     print('\n ----------------fmnist 1--------------------- \n')
-    fmnist1 = CNNFmnist1()
+    fmnist1 = CNNFmnist()
     for name, parameter in fmnist1.named_parameters():
         print(f'name: {name} --- parameter size: {parameter.size()}')
     summary(fmnist1, input_size=(1, 1, 28, 28))
@@ -175,7 +215,7 @@ if __name__ == '__main__':
     summary(fmnist2, input_size=(1, 1, 28, 28))
     
     print('\n ----------------Cifar10 1--------------------- \n')
-    cifar1 = CNNCifar1()
+    cifar1 = CNNCifar10()
     for name, parameter in cifar1.named_parameters():
         print(f'name: {name} --- parameter size: {parameter.size()}')
     summary(cifar1, input_size=(1, 3, 32, 32))

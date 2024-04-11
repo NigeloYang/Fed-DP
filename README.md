@@ -13,21 +13,24 @@ in this work. Fed-DP provides the necessary modules for FL, such as basic model,
 etc. In the future, our framework will also include the following:
 
 - Shuffle Model (SM) [[2]](#2)
-- Differential Privacy (DP) [[2]](#2)
-- Personalized Federated Learning (PFL) [[4]](#4).
+- Differential Privacy (DP) [[3]](#3)
+- - Shuffle Model and Differential Privacy (SDP) [[2,5]](#5)
+- Personalized Federated Learning (PFL) [[4]](#4)
+
 
 
 ## Methods with Code (updating)
-| Model                   | Paper                                                                                                                         | Time         | Type | Official Code                               | Fed-DP Code       | Methods                |
-|:------------------------|:------------------------------------------------------------------------------------------------------------------------------|:-------------|:-----|:--------------------------------------------|:------------------|:-----------------------|
-| FedAvg                  | [Communication-Efficient Learning of Deep Networks from Decentralized Data](http://proceedings.mlr.press/v54/mcmahan17a.html) | AISTATS 2017 | FL   | None                                        | [Code](./main.py) |                        |
-| FedProx                 | [Federated Optimization in Heterogeneous Networks](https://arxiv.org/abs/1812.06127)                                          | MLsys 2020   | PFL  | [Code](https://github.com/litian96/FedProx) | [Code](./main.py) | Regularized Local Loss |
-| FedNova                 | [Tackling the Objective Inconsistency Problem in Heterogeneous Federated Optimization](https://arxiv.org/abs/2007.07481)      | NeurIPS 2020 | PFL  | [Code](https://github.com/JYWa/FedNova)     | [Code](./main.py) | Regularized Local Loss |
-| SCAFFOLD                | [SCAFFOLD: Stochastic Controlled Averaging for Federated Learning](http://proceedings.mlr.press/v119/karimireddy20a.html)     | ICML 2020    | PFL  | None                                        | [Code](./main.py) | Regularized Local Loss |
-| MOON                    | [Model-Contrastive Federated Learning](https://arxiv.org/abs/2103.16257)                                                      | CVPR 2021    | PFL  | [Code](https://github.com/QinbinLi/MOON)    | [Code](./main.py) | Regularized Local Loss |
+| Model    | Paper                                                                                                                         | Time         | Type     | Official Code                                  | Fed-DP Code       | Methods                | DP          |
+|:---------|:------------------------------------------------------------------------------------------------------------------------------|:-------------|:---------|:-----------------------------------------------|:------------------|:-----------------------|:------------|
+| FedAvg   | [Communication-Efficient Learning of Deep Networks from Decentralized Data](http://proceedings.mlr.press/v54/mcmahan17a.html) | AISTATS 2017 | FL       | None                                           | [Code](./main.py) |                        | CDP,LDP     |
+| FedProx  | [Federated Optimization in Heterogeneous Networks](https://arxiv.org/abs/1812.06127)                                          | MLsys 2020   | PFL      | [Code](https://github.com/litian96/FedProx)    | [Code](./main.py) | Regularized Local Loss | CDP,LDP     |
+| FedNova  | [Tackling the Objective Inconsistency Problem in Heterogeneous Federated Optimization](https://arxiv.org/abs/2007.07481)      | NeurIPS 2020 | PFL      | [Code](https://github.com/JYWa/FedNova)        | [Code](./main.py) | Regularized Local Loss | CDP,LDP     |
+| SCAFFOLD | [SCAFFOLD: Stochastic Controlled Averaging for Federated Learning](http://proceedings.mlr.press/v119/karimireddy20a.html)     | ICML 2020    | PFL      | None                                           | [Code](./main.py) | Regularized Local Loss | CDP,LDP     |
+| MOON     | [Model-Contrastive Federated Learning](https://arxiv.org/abs/2103.16257)                                                      | CVPR 2021    | PFL      | [Code](https://github.com/QinbinLi/MOON)       | [Code](./main.py) | Regularized Local Loss | CDP,LDP     |
+| FLAME    | [FLAME: Differentially Private Federated Learning in the Shuffle Model](https://arxiv.org/abs/2009.08063)                     | AAAI 2021    | LDP-FL   | [Code](https://github.com/Rachelxuan11/FLAME)  | [Code](./main.py) | SDP                    | CDP,LDP,SDP |
 
 
-## Create Environment
+## Create Environment 
 Command to create a new environment in anaconda
   ```bash
   git clone https://github.com/NigeloYang/Fed-DP.git
@@ -66,15 +69,17 @@ For details, please see: [Generate Datasets](./dataset/README.md)  (updating)
 ## Contact
 
 For technical issues related to Fed-DP development, please contact me through Github issues or email:
+  :satisfied: 
 
 - 📧 yangqiantao@126.com
 
 ## Development progress
 - [x] Base Federated Learning Framework
-- [x] Integrated Differential Privacy (Updating)
-- [ ] Integrated shuffle Model
+- [x] Integrated Differential Privacy (Updating,next add meta`s DP tool -> opacus )
+- [x] Integrated shuffle Model (Updating)
 - [x] Integrated Personalized Federated Learning to solve Non-IID (Updating)
 - [x] Generated Data: IID, Non-IID (Updating)
+
 
 ## References
 <a id="1">[1]</a> Yang, Q., Liu, Y., Chen, T., & Tong, Y. (2019). Federated Machine Learning: Concept and Applications. ACM Trans. Intell. Syst. Technol., 10(2), 12:11-12:19.
@@ -84,3 +89,5 @@ For technical issues related to Fed-DP development, please contact me through Gi
 <a id="1">[3]</a> Cynthia, D., & Aaron, R. (2014). The Algorithmic Foundations of Differential Privacy.
 
 <a id="1">[4]</a> Tan, A. Z., Yu, H., Cui, L., & Yang, Q. (2022). Towards Personalized Federated Learning. IEEE Transactions on Neural Networks and Learning Systems, 1-17. [Chinese](https://zhuanlan.zhihu.com/p/621188058)
+
+<a id="1">[5]</a> Balle, B., et al. (2019). The Privacy Blanket of the Shuffle Model: 638-667.

@@ -2,16 +2,17 @@
 # @Time    : 2023/4/14
 
 import math
-
 import torch
 import os
 import numpy as np
 import copy
 import time
 import random
+
 from torch.utils.data import DataLoader
 
 from system.utils.data_utils import get_dataset
+from system.utils.dlg import DLG
 from system.utils.utils import transform
 from system.utils.data_utils import DatasetSplit
 
@@ -25,49 +26,59 @@ class ServerBase(object):
         self.learn_rate = args.local_learn_rate
         self.eval_every = args.eval_every
         self.num_clients = args.num_clients
-        self.isrclient = args.isrclient
+        self.data_iid = args.dataiid
+        self.major_classes_num = args.major_classes_num
         
-        self.clip_c = args.norm
+        self.rclient = args.rclient
+        self.rc_rate = args.rc_rate
+        self.train_slow = args.train_slow
+        self.send_slow = args.send_slow
+        
+        self.diyldp = args.diyldp
+        self.diycdp = args.diycdp
+        self.opacus = args.opacus
         self.epsilon = args.epsilon
         self.delta = args.delta
-        self.isdiydp = args.isdiydp
-        self.isopacus = args.isopacus
         self.mechanism = args.mechanism
+        self.clip_c = args.clip_c
+        self.sigma = (2 * self.clip_c / self.epsilon) * math.sqrt(2 * math.log(1.25 / self.delta))
         
-        self.data_iid = args.dataiid
+        self.com_rate = args.com_rate
+        self.mp_rate = args.mp_rate
+        
         self.device = args.device
-        self.rate = args.rate
-        self.istest = args.istest
+        self.test = args.test
         
         self.clients = []
         self.selected_clients = []
         
         self.metrics = metrics
         self.train_dataset, self.test_dataset, self.client_group = get_dataset(self.dataset, self.data_iid,
-                                                                               self.num_clients, args)
-        self.model_params_shape, self.model_params_lenght = self.save_model_shape(self.global_model.parameters())
+                                                                               self.num_clients, self.major_classes_num,
+                                                                               args)
+        self.model_params_shape, self.model_params_length = self.save_model_shape(self.global_model.parameters())
     
     ############################# model shape ##############################
     def save_model_shape(self, params):
-        params_shape = []
-        params_lenght = 0
+        model_params_shape = []
+        model_params_lenght = 0
         for param in params:
-            params_shape.append(list(param.size()))
-            params_lenght += len(param.data.reshape(-1))
+            model_params_shape.append(list(param.size()))
+            model_params_lenght += len(param.data.reshape(-1))
         
-        return params_shape, params_lenght
+        return model_params_shape, model_params_lenght
     
     def recover_model_shape(self, flattened):
-        grads = []
+        model_params = []
         start_len = 0
         for size in self.model_params_shape:
             end_len = 1
             for i in list(size):
                 end_len *= i
             temp_data = flattened[start_len:start_len + end_len].reshape(size)
-            grads.append(temp_data)
+            model_params.append(temp_data)
             start_len = start_len + end_len
-        return grads
+        return model_params
     
     ############################# set/select client ##############################
     def set_clients(self, args, clientObj):
@@ -81,11 +92,10 @@ class ServerBase(object):
         Return:
             list of Clients
         '''
-        if self.isrclient:
-            return [i for i in range(self.num_clients) if np.random.random() < self.rc_rate]
-        elif self.istest:
-            # return np.random.randint(0, self.num_clients, 3)
-            return [1, 2, 3]
+        if self.test:
+            return [i for i in range(10)]
+        elif self.rclient:
+            return [i for i in range(self.num_clients) if np.random.random() <= self.rc_rate]
         else:
             return [i for i in range(self.num_clients)]
     
@@ -149,83 +159,116 @@ class ServerBase(object):
         self.global_model.eval()
         criterion = torch.nn.CrossEntropyLoss().to(self.device)
         
-        test_loader = DataLoader(self.test_dataset, batch_size=128, shuffle=True)
-        loss, total, correct = 0.0, 0.0, 0.0
+        test_loader = DataLoader(self.test_dataset, batch_size=64, shuffle=True)
+        loss, acc = 0.0, 0.0
         size = len(test_loader.dataset)
         num_batches = len(test_loader)
         
         with torch.no_grad():
             for batch_idx, (images, labels) in enumerate(test_loader):
                 images, labels = images.to(self.device), labels.to(self.device)
-                pred = self.global_model(images)
-                loss += criterion(pred, labels).item()
-                correct += (pred.argmax(1) == labels).type(torch.float).sum().item()
+                output = self.global_model(images)
+                loss += criterion(output, labels).item()
+                acc += (torch.sum(torch.argmax(output, dim=1) == labels)).item()
         loss /= num_batches
-        correct /= size
+        acc /= size
         
-        return correct, loss
+        return acc, loss
     
     ################################# Server ##############################
-    def server_process(self, client_models, sample_lens):
-        agg_client_model = self.aggregate_e(client_models, sample_lens)
-        
-        if self.isdiydp:
-            return self.average(agg_client_model)
+    def server_process(self, client_models, sample_weights):
+        if self.diyldp:
+            return self.aggregate_model_ldp(client_models, sample_weights)
+        elif self.diycdp:
+            return self.aggregate_model_cdp(client_models, sample_weights)
         else:
-            return agg_client_model
+            return self.aggregate_model(client_models, sample_weights)
     
-    ################################# AVERAGE/AGGREGATE ##############################
-    def average(self, agg_client_model):
-        for i, v in enumerate(agg_client_model):
-            agg_client_model[i] = torch.as_tensor(v).cuda()
-        return agg_client_model
-    
-    def average_cali(self, agg_client_model):
-        '''
-        total_weight: # of aggregated updates
-        base: sum of aggregated updates
-        return the average update after transforming back from [0, 1] to [-C, C]
-        '''
-        for i, v in enumerate(agg_client_model):
-            temp_data = transform(v, 0, 1, -self.clip_c, self.clip_c)
-            agg_client_model[i] = torch.as_tensor(temp_data).cuda()
-        return agg_client_model
-    
-    def aggregate_e(self, client_models, sample_lens):
-        agg_model = [0] * len(client_models[0])
-        sample_id = 0
-        total_sample = sum(sample_lens)
-        for client_model in client_models:
-            for i, client_m in enumerate(client_model):
-                agg_model[i] = agg_model[i] + client_m * sample_lens[sample_id] / total_sample
-            sample_id += 1
+    ################################# AGGREGATE ##############################
+    def aggregate_model(self, client_models, sample_weights):
+        total_weights = sum(sample_weights)
+        agg_model = copy.deepcopy(client_models[0])
+        for params in agg_model:
+            params.data.zero_()
+        
+        for sw, client_model in zip(sample_weights, client_models):
+            for a_m, c_m in zip(agg_model, client_model):
+                a_m.data += (c_m.data * sw) / total_weights
+        
         return agg_model
     
-    def aggregate_p(self, client_models, sample_lens, choice_list):
-        agg_model = self.aggregate_e(client_models, sample_lens)
-        m_s = np.bincount(choice_list, minlength=(self.model_params_lenght))
-        m_n = np.ones(len(m_s)) * self.m_p - m_s
-        assert len(
-            np.where(m_n < 0)[
-                0]) == 0, 'ERROR: Please choose a larger m_p (smaller mp_rate) and re-run, cause max(m_s): {} > m_p: {}'.format(
-            max(m_s), self.m_p)
-        dummies = np.zeros(len(m_n))
+    def aggregate_model_cdp(self, client_models, sample_weights):
+        total_weights = sum(sample_weights)
+        agg_model = copy.deepcopy(client_models[0])
+        for params in agg_model:
+            params.data.zero_()
         
-        sigma = (2 * self.clip_c / self.epsilon) * math.sqrt(2 * math.log(1.25 / self.delta))
-        for i, v in enumerate(m_n):
-            assert self.mechanism == 'laplace', "Please use laplace for v1-v3"
-            dummies[i] = sum(np.random.laplace(loc=0.5, scale=1.0 / self.epsilon, size=int(v))) - 0.5 * (
-                self.m_p - self.em_s)
-        d_noise = self.recover_model_shape(dummies)
+        for sw, client_model in zip(sample_weights, client_models):
+            for a_m, c_m in zip(agg_model, client_model):
+                a_m.data += (c_m.data * sw) / total_weights
         
-        return [torch.as_tensor(transform((agg_m + d_n) / self.em_s, 0, 1, -self.clip_c, self.clip_c)).cuda() for
-                agg_m, d_n in zip(agg_model, d_noise)]
+        for a_m in agg_model:
+            a_m.data = a_m.data + torch.as_tensor(
+                np.random.normal(0, self.sigma, np.array(a_m.data.cpu()).shape)).cuda()
+        return agg_model
+    
+    def aggregate_model_ldp(self, client_models, sample_weights):
+        total_weights = sum(sample_weights)
+        agg_model = [0] * len(client_models[0])
+        
+        for sw, client_model in zip(sample_weights, client_models):
+            agg_model += client_model * sw / total_weights
+        
+        agg_model = self.recover_model_shape(agg_model)
+        
+        # total_weight: of aggregated updates
+        # base: sum of aggregated updates
+        # return the average update after transforming back from [0, 1] to [-C, C]
+        for i, v in enumerate(agg_model):
+            temp_data = transform(v, 0, 1, -self.clip_c, self.clip_c)
+            agg_model[i] = torch.as_tensor(temp_data).cuda()
+        
+        return agg_model
     
     ############################# update model ##############################
     def update_global_params(self, agg_client_model):
-        self.model_merge(self.global_model.parameters(), agg_client_model)
-        self.latest_global_model = self.global_model.parameters()
+        for server_m, agg_client_m in zip(self.global_model.parameters(), agg_client_model):
+            server_m.data += agg_client_m.data.clone()
     
-    def model_merge(self, server_model, agg_client_model):
-        for server_m, agg_client_m in zip(server_model, agg_client_model):
-            server_m.data += agg_client_m
+    ############################# attack model ##############################
+    def call_dlg(self, R):
+        # items = []
+        cnt = 0
+        psnr_val = 0
+        for cid, client_model in zip(self.uploaded_ids, self.uploaded_models):
+            client_model.eval()
+            origin_grad = []
+            for gp, pp in zip(self.global_model.parameters(), client_model.parameters()):
+                origin_grad.append(gp.data - pp.data)
+            
+            target_inputs = []
+            trainloader = self.clients[cid].load_train_data()
+            with torch.no_grad():
+                for i, (x, y) in enumerate(trainloader):
+                    if i >= self.batch_num_per_client:
+                        break
+                    
+                    if type(x) == type([]):
+                        x[0] = x[0].to(self.device)
+                    else:
+                        x = x.to(self.device)
+                    y = y.to(self.device)
+                    output = client_model(x)
+                    target_inputs.append((x, output))
+            
+            d = DLG(client_model, origin_grad, target_inputs)
+            if d is not None:
+                psnr_val += d
+                cnt += 1
+            
+            # items.append((client_model, origin_grad, target_inputs))
+        
+        if cnt > 0:
+            print('PSNR value is {:.2f} dB'.format(psnr_val / cnt))
+        else:
+            print('PSNR error')

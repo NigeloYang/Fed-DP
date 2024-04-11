@@ -7,7 +7,7 @@ import torch
 
 from system.clients.clientbase import ClientBase
 from system.optimizers.fedoptimizer import FedProxOptimizer
-from system.utils.priv_utils import *
+from system.privacy.priv_utils import sampling_randomizer
 
 
 class clientProx(ClientBase):
@@ -19,9 +19,10 @@ class clientProx(ClientBase):
         
         self.optimizer = FedProxOptimizer(self.model.parameters(), lr=self.learn_rate, mu=self.mu)
         
-        if self.rate > 1 and self.isdiydp:
-            self.topk = int(self.model_params_lenght / self.rate)
-            print("Topk selecting {} dimensions".format(self.topk))
+        if self.diyldp:
+            self.topk = int(self.model_params_length / self.com_rate)
+            self.eps_ld = self.epsilon / self.topk
+            print(f'local differential privacy epsilon: {self.eps_ld}')
     
     def train(self, client_id, global_round, metrics):
         local_trainloader = self.local_trainloader
@@ -39,7 +40,7 @@ class clientProx(ClientBase):
                 
                 # 预测和计算准确度
                 output = self.model(images)
-                acc += (output.argmax(1) == labels).type(torch.float).sum().item()
+                acc += (torch.sum(torch.argmax(output, dim=1) == labels)).item()
                 
                 # 计算损失
                 loss = self.criterion(output, labels)
@@ -55,32 +56,32 @@ class clientProx(ClientBase):
                 
                 if batch_idx % 4 == 0:
                     print(
-                        '| Client: {:>3} | Global Round: {:>2} | Local Epoch: {:>2} | Process: {:>3.0f}% | Acc: {:>3.0f}% | Loss: {:.3f}'.format(
-                            client_id, global_round + 1, local_epoch + 1,
-                                       100. * (batch_idx + 1) / len(local_trainloader),
-                                       100. * acc / total, loss.item()))
+                        '| Global Round: {:>2} | Client: {:>3} | Local Epoch: {:>2} | Process: {:>3.0f}% | Acc: {:>3.0f}% | Loss: {:.3f}'.format(
+                            global_round + 1, client_id, local_epoch + 1,
+                            100. * (batch_idx + 1) / len(local_trainloader), 100. * acc / total, loss.item()))
             client_sample_len = total
         
-        train_model = copy.deepcopy(self.model)
-        delta_model = self.weight_interpolation(train_model.parameters())
+        ctrain_model = copy.deepcopy(self.model)
+        delta_ctmodel = self.weight_interpolation(ctrain_model.parameters())
         
-        if self.isdiydp:
-            flattened = self.process_grad(delta_model)
-            delta_model_noise = self.add_noise(flattened)
-            delta_model_noise = self.recover_model_shape(delta_model_noise)
+        if self.diyldp:
+            flattened = self.process_grad(delta_ctmodel)
+            delta_ctmodel_noise = self.add_noise(flattened)
+            # delta_ctmodel_noise = self.recover_model_shape(delta_ctmodel_noise)
             
             # save train model time cost
             metrics.client_train_time[client_id][global_round] = time.time() - train_time
             
-            return delta_model_noise, client_sample_len
+            return delta_ctmodel_noise, client_sample_len
         else:
             # save train model time cost
             metrics.client_train_time[client_id][global_round] = time.time() - train_time
             
-            return delta_model, client_sample_len
+            return delta_ctmodel, client_sample_len
     
     def update_client_params(self, global_model):
-        for client_m, latest_global_m, global_p, global_m in zip(self.model.parameters(), self.latest_global_model,
+        for client_m, latest_global_m, global_p, global_m in zip(self.model.parameters(),
+                                                                 self.client_global_model.parameters(),
                                                                  self.global_params, global_model.parameters()):
             client_m.data = global_m.data.clone()
             latest_global_m.data = global_m.data.clone()
@@ -90,7 +91,7 @@ class clientProx(ClientBase):
         """ Returns the inference accuracy and loss."""
         self.model.eval()
         
-        size, correct = 0.0, 0.0
+        size, acc = 0.0, 0.0
         losses = []
         
         with torch.no_grad():
@@ -98,13 +99,13 @@ class clientProx(ClientBase):
                 images, labels = images.to(self.device), labels.to(self.device)
                 size += labels.shape[0]
                 
-                pred = self.model(images)
-                correct += (pred.argmax(1) == labels).type(torch.float).sum().item()
+                output = self.model(images)
+                acc += (torch.sum(torch.argmax(output, dim=1) == labels)).item()
                 
-                loss = self.criterion(pred, labels)
+                loss = self.criterion(output, labels)
                 gm = torch.cat([p.data.view(-1) for p in self.global_params], dim=0)
                 pm = torch.cat([p.data.view(-1) for p in self.model.parameters()], dim=0)
                 loss += 0.5 * self.mu * torch.norm(gm - pm, p=2)
                 losses.append(loss.item())
         
-        return correct, sum(losses) / len(losses), size
+        return acc, sum(losses) / len(losses), size

@@ -2,8 +2,9 @@
 # @Time    : 2023/4/14
 
 import time
-from tqdm import tqdm
 
+import numpy as np
+from tqdm import tqdm
 from system.servers.serverbase import ServerBase
 from system.clients.clientavg import clientAvg
 
@@ -32,27 +33,34 @@ class FedAvg(ServerBase):
                 print("Model is Evaluating")
                 self.evaluate(epoch)
             
-            ############ local client process ###########
+            ############################# local client process ##############################
             client_models = []
             client_sample_lens = []
             for client_id in self.selected_clients:
                 # send global model
+                if self.send_slow:
+                    time.sleep(0.1 * np.abs(np.random.rand()))
                 self.send_models(epoch, client_id)
                 
                 # local iteration train
-                noise_model, sample_len = self.clients[client_id].train(client_id, epoch, self.metrics)
-                client_models.append(noise_model)
-                client_sample_lens.append(sample_len)
+                delta_ctmodel, csample_len = self.clients[client_id].train(client_id, epoch, self.metrics)
+                client_models.append(delta_ctmodel)
+                client_sample_lens.append(csample_len)
             
-            ############ server process / weight process / rceive model ###########
+            ############################# server process / weight process / rceive model ##############################
             agg_client_model = self.server_process(client_models, client_sample_lens)
+            
             self.update_global_params(agg_client_model)
+            
             self.metrics.global_epoch_time.append(time.time() - epoch_time)
             print("Global Training Round: {:>3} | Cost Time: {:>4.4f}".format(epoch + 1, time.time() - epoch_time))
-        
-        print('\n--------------Test Final Model-----------------')
-        test_acc, test_loss = self.final_test()
-        print(f"After Global Epoch,Test Final Model Acc: {100 * test_acc:.4f}% | Loss: {test_loss:.4f} ")
-        
-        self.metrics.final_accuracies.append(test_acc)
-        self.metrics.final_loss.append(test_loss)
+            
+            print('\n--------------Test Model-----------------')
+            test_acc, test_loss = self.final_test()
+            print(
+                "Global Training Round: {:>3} | Test Model Acc: {:>4.4f}% | Test Model Loss: {:>4.4f}".format(epoch + 1,
+                                                                                                              100 * test_acc,
+                                                                                                              test_loss))
+            
+            self.metrics.final_accuracies.append(test_acc)
+            self.metrics.final_loss.append(test_loss)

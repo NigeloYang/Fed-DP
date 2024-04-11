@@ -1,12 +1,14 @@
 # -*- coding: utf-8 -*-
 # @Time    : 2023/4/29
-
+import copy
 import time
+import numpy as np
 import torch
 from tqdm import tqdm
 
 from system.servers.serverbase import ServerBase
 from system.clients.clientnova import clientNova
+from system.utils.utils import transform
 
 
 class FedNova(ServerBase):
@@ -39,6 +41,8 @@ class FedNova(ServerBase):
             client_batches = []
             for client_id in self.selected_clients:
                 # send global model
+                if self.send_slow:
+                    time.sleep(0.1 * np.abs(np.random.rand()))
                 self.send_models(epoch, client_id)
                 
                 # local iteration train
@@ -49,40 +53,85 @@ class FedNova(ServerBase):
             
             ############ server process / weight process / rceive model ###########
             agg_client_model = self.server_process(client_models, client_sample_lens, client_batches)
+            
             self.update_global_params(agg_client_model)
+            
             self.metrics.global_epoch_time.append(time.time() - epoch_time)
             print("Global Training Round: {:>3} | Cost Time: {:>4.4f}".format(epoch + 1, time.time() - epoch_time))
-        
-        print('\n--------------Test Final Model-----------------')
-        test_acc, test_loss = self.final_test()
-        print(f"After Global Epoch,Test Final Model Acc: {100 * test_acc:.4f}% | Loss: {test_loss:.4f} ")
-        
-        self.metrics.final_accuracies.append(test_acc)
-        self.metrics.final_loss.append(test_loss)
+            
+            print('\n--------------Test Model-----------------')
+            test_acc, test_loss = self.final_test()
+            print(
+                "Global Training Round: {:>3} | Test Model Acc: {:>4.4f}% | Test Model Loss: {:>4.4f}".format(epoch + 1,
+                                                                                                              100 * test_acc,
+                                                                                                              test_loss))
+            
+            self.metrics.final_accuracies.append(test_acc)
+            self.metrics.final_loss.append(test_loss)
     
     def server_process(self, client_models, sample_lens, client_batches):
         '''
         basic aggregate, but enlarge the learning rate when Top-k is applied
         '''
-        agg_client_model = self.aggregate_e(client_models, sample_lens, client_batches)
-        
-        if self.isdiydp:
-            return self.average(agg_client_model)
+        if self.diyldp:
+            return self.aggregate_model_ldp(client_models, sample_lens, client_batches)
+        elif self.diycdp:
+            return self.aggregate_model_cdp(client_models, sample_lens, client_batches)
         else:
-            return agg_client_model
+            return self.aggregate_model(client_models, sample_lens, client_batches)
     
-    def aggregate_e(self, client_models, sample_lens, client_batches):
+    def aggregate_model(self, client_models, sample_weights, client_batches):
+        total_weights = sum(sample_weights)
+        total_batch = 0
+        for sample_len, client_batch in zip(sample_weights, client_batches):
+            total_batch += (sample_len * client_batch) / total_weights
+        
+        agg_model = copy.deepcopy(client_models[0])
+        for params in agg_model:
+            params.data.zero_()
+        
+        for w, c_b, client_model in zip(sample_weights, client_batches, client_models):
+            for a_m, c_m in zip(agg_model, client_model):
+                a_m.data += total_batch * (c_m.data * w) / (total_weights * c_b)
+        return agg_model
+    
+    def aggregate_model_cdp(self, client_models, sample_weights, client_batches):
+        total_weights = sum(sample_weights)
+        total_batch = 0
+        for sample_len, client_batch in zip(sample_weights, client_batches):
+            total_batch += (sample_len * client_batch) / total_weights
+        
+        agg_model = copy.deepcopy(client_models[0])
+        for params in agg_model:
+            params.data.zero_()
+        
+        for sw, c_b, client_model in zip(sample_weights, client_batches, client_models):
+            for a_m, c_m in zip(agg_model, client_model):
+                a_m.data += total_batch * (c_m.data * sw) / (total_weights * c_b)
+        
+        for a_m in agg_model:
+            a_m.data = a_m.data + torch.as_tensor(
+                np.random.normal(0, self.sigma, np.array(a_m.data.cpu()).shape)).cuda()
+        return agg_model
+    
+    def aggregate_model_ldp(self, client_models, sample_weights, client_batches):
+        total_weights = sum(sample_weights)
+        total_batch = 0
+        for sample_len, client_batch in zip(sample_weights, client_batches):
+            total_batch += (sample_len * client_batch) / total_weights
+        
         agg_model = [0] * len(client_models[0])
-        sample_id = 0
-        total_sample = sum(sample_lens)
         
-        avg_batch = 0
-        for sample_len, client_batch in zip(sample_lens, client_batches):
-            avg_batch += (sample_len * client_batch) / total_sample
+        for sw, c_b, client_model in zip(sample_weights, client_batches, client_models):
+            agg_model += total_batch * (client_model * sw) / (total_weights * c_b)
         
-        for client_model in client_models:
-            for i, client_m in enumerate(client_model):
-                agg_model[i] = agg_model[i] + avg_batch * (client_m * sample_lens[sample_id]) / (
-                    total_sample * client_batches[sample_id])
-            sample_id += 1
+        agg_model = self.recover_model_shape(agg_model)
+        
+        # total_weight: of aggregated updates
+        # base: sum of aggregated updates
+        # return the average update after transforming back from [0, 1] to [-C, C]
+        for i, v in enumerate(agg_model):
+            temp_data = transform(v, 0, 1, -self.clip_c, self.clip_c)
+            agg_model[i] = torch.as_tensor(temp_data).cuda()
+        
         return agg_model

@@ -1,25 +1,23 @@
 # -*- coding: utf-8 -*-
-# @Time    : 2023/4/14
+# @Time    : 2024/4/11
 
 import copy
 import numpy as np
 import time
-
 import torch
 import torch.nn as nn
 
 from system.clients.clientbase import ClientBase
 from system.privacy.priv_utils import *
+from system.utils.utils import topindex
 
 
-class clientAvg(ClientBase):
+class clientFlame(ClientBase):
     def __init__(self, args, id, train_dataset, label_idxs, **kwargs):
         super().__init__(args, id, train_dataset, label_idxs, **kwargs)
         
-        if self.diyldp:
-            self.topk = int(self.model_params_length / self.com_rate)
-            self.eps_ld = self.epsilon / self.topk
-            print(f'local differential privacy epsilon: {self.eps_ld}')
+        self.topk = int(self.model_params_length / self.com_rate)
+        print("Topk selecting {} dimensions".format(self.topk))
     
     def train(self, client_id, global_round, metrics):
         local_trainloader = self.local_trainloader
@@ -35,12 +33,9 @@ class clientAvg(ClientBase):
                 images, labels = images.to(self.device), labels.to(self.device)
                 total += len(labels)
                 
-                if self.train_slow:
-                    time.sleep(0.1 * np.abs(np.random.rand()))
-                
                 # 预测和计算准确度
                 output = self.model(images)
-                acc += (torch.sum(torch.argmax(output, dim=1) == labels)).item()
+                acc += (output.argmax(1) == labels).type(torch.float).sum().item()
                 
                 # 计算损失
                 loss = self.criterion(output, labels)
@@ -64,17 +59,23 @@ class clientAvg(ClientBase):
         ctrain_model = copy.deepcopy(self.model)
         delta_ctmodel = self.weight_interpolation(ctrain_model.parameters())
         
-        if self.diyldp:
-            flattened = self.process_grad(delta_ctmodel)
-            delta_ctmodel_noise = self.add_noise(flattened)
-            # delta_ctmodel_noise = self.recover_model_shape(delta_ctmodel_noise)
-            
-            # save train model time cost
-            metrics.client_train_time[client_id][global_round] = time.time() - train_time
-            
-            return delta_ctmodel_noise, client_sample_len
-        else:
-            # save train model time cost
-            metrics.client_train_time[client_id][global_round] = time.time() - train_time
-            
-            return delta_ctmodel, client_sample_len
+        flattened = self.process_grad(delta_ctmodel)
+        idx_choices, delta_ctmodel_noise = self.add_noise(flattened)
+        # delta_ctmodel_noise = self.recover_model_shape(delta_ctmodel_noise)
+        
+        # save train model time cost
+        metrics.client_train_time[client_id][global_round] = time.time() - train_time
+        
+        return delta_ctmodel_noise, client_sample_len, idx_choices
+    
+    def add_noise(self, flattened):
+        '''lcoal client add noise'''
+        idx_choice = topindex(flattened, self.topk)
+        print(len(idx_choice))
+        
+        # gpu 操作
+        # choices = np.random.choice(flattened.size(0), self.sampling)
+        
+        cm_params = sampling_randomizer(flattened, idx_choice, self.clip_c, self.epsilon, self.delta, self.mechanism)
+        
+        return idx_choice, cm_params

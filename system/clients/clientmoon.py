@@ -4,22 +4,22 @@
 import copy
 import numpy as np
 import time
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 from system.clients.clientbase import ClientBase
-from system.utils.priv_utils import *
+from system.privacy.priv_utils import *
 
 
 class clientMoon(ClientBase):
     def __init__(self, args, id, train_dataset, label_idxs, **kwargs):
         super().__init__(args, id, train_dataset, label_idxs, **kwargs)
         
-        if self.rate > 1 and self.isdiydp:
-            self.topk = int(self.model_params_lenght / self.rate)
-            print("Topk selecting {} dimensions".format(self.topk))
+        if self.diyldp:
+            self.topk = int(self.model_params_length / self.com_rate)
+            self.eps_ld = self.epsilon / self.topk
+            print(f'local differential privacy epsilon: {self.eps_ld}')
         
         self.tau = args.tau
         self.mu = args.mu
@@ -41,19 +41,35 @@ class clientMoon(ClientBase):
                 images, labels = images.to(self.device), labels.to(self.device)
                 total += len(labels)
                 
-                # 预测和计算准确度
-                output = self.model(images)
-                acc += (output.argmax(1) == labels).type(torch.float).sum().item()
+                # # 预测和计算准确度
+                # output = self.model(images)
+                # acc += (output.argmax(1) == labels).type(torch.float).sum().item()
+                #
+                # # 计算损失
+                # loss = self.criterion(output, labels)
+                #
+                # # Moon idea by myself
+                # output_glob = self.global_model(images)
+                # output_prev = self.old_client_model(images)
+                # loss_con = - torch.log(torch.exp(F.cosine_similarity(output, output_glob) / self.tau) / (
+                #     torch.exp(F.cosine_similarity(output, output_glob) / self.tau) + torch.exp(
+                #     F.cosine_similarity(output, output_prev) / self.tau)))
+                # loss += self.mu * torch.mean(loss_con)
                 
-                # 计算损失
+                # MOON IDEA 预测和计算准确度
+                rep_curr = self.model.base(images)
+                output = self.model.head(rep_curr)
+                
+                acc += (torch.sum(torch.argmax(output, dim=1) == labels)).item()
+                
                 loss = self.criterion(output, labels)
                 
-                # Moon idea
-                output_glob = self.global_model(images)
-                output_prev = self.old_client_model(images)
-                loss_con = - torch.log(torch.exp(F.cosine_similarity(output, output_glob) / self.tau) / (
-                    torch.exp(F.cosine_similarity(output_prev, output_glob) / self.tau) + torch.exp(
-                    F.cosine_similarity(output, output_prev) / self.tau)))
+                rep_glob = self.global_model.base(images).detach()
+                rep_prev = self.old_client_model.base(images).detach()
+                loss_con = - torch.log(torch.exp(F.cosine_similarity(rep_curr, rep_glob) / self.tau) / (
+                    torch.exp(F.cosine_similarity(rep_curr, rep_glob) / self.tau) + torch.exp(
+                    F.cosine_similarity(rep_curr, rep_prev) / self.tau)))
+                
                 loss += self.mu * torch.mean(loss_con)
                 
                 # 将梯度初始化为 0，以便批次之间不会混合梯度
@@ -67,34 +83,33 @@ class clientMoon(ClientBase):
                 
                 if batch_idx % 4 == 0:
                     print(
-                        '| Client: {:>3} | Global Round: {:>2} | Local Epoch: {:>2} | Process: {:>3.0f}% | Acc: {:>3.0f}% | Loss: {:.3f}'.format(
-                            client_id, global_round + 1, local_epoch + 1,
-                                       100. * (batch_idx + 1) / len(local_trainloader),
-                                       100. * acc / total, loss.item()))
+                        '| Global Round: {:>2} | Client: {:>3} | Local Epoch: {:>2} | Process: {:>3.0f}% | Acc: {:>3.0f}% | Loss: {:.3f}'.format(
+                            global_round + 1, client_id, local_epoch + 1,
+                            100. * (batch_idx + 1) / len(local_trainloader), 100. * acc / total, loss.item()))
             client_sample_len = total
         
         self.old_client_model = copy.deepcopy(self.model)
         
-        train_model = copy.deepcopy(self.model)
-        delta_model = self.weight_interpolation(train_model.parameters())
+        ctrain_model = copy.deepcopy(self.model)
+        delta_ctmodel = self.weight_interpolation(ctrain_model.parameters())
         
-        if self.isdiydp:
-            flattened = self.process_grad(delta_model)
-            delta_model_noise = self.add_noise(flattened)
-            delta_model_noise = self.recover_model_shape(delta_model_noise)
+        if self.diyldp:
+            flattened = self.process_grad(delta_ctmodel)
+            delta_ctmodel_noise = self.add_noise(flattened)
+            # delta_ctmodel_noise = self.recover_model_shape(delta_ctmodel_noise)
             
             # save train model time cost
             metrics.client_train_time[client_id][global_round] = time.time() - train_time
             
-            return delta_model_noise, client_sample_len
+            return delta_ctmodel_noise, client_sample_len
         else:
             # save train model time cost
             metrics.client_train_time[client_id][global_round] = time.time() - train_time
             
-            return delta_model, client_sample_len
+            return delta_ctmodel, client_sample_len
     
     def update_client_params(self, global_model):
-        for client_m, latest_global_m, global_m in zip(self.model.parameters(), self.latest_global_model,
+        for client_m, latest_global_m, global_m in zip(self.model.parameters(), self.client_global_model.parameters(),
                                                        global_model.parameters()):
             client_m.data = global_m.data.clone()
             latest_global_m.data = global_m.data.clone()
@@ -104,26 +119,29 @@ class clientMoon(ClientBase):
         """ Returns the inference accuracy and loss."""
         self.model.eval()
         
-        size, correct = 0.0, 0.0
+        size, acc = 0.0, 0.0
         losses = []
         with torch.no_grad():
             for images, labels in self.local_trainloader:
                 images, labels = images.to(self.device), labels.to(self.device)
                 size += labels.shape[0]
                 
-                output = self.model(images)
-                correct += (output.argmax(1) == labels).type(torch.float).sum().item()
+                rep_curr = self.model.base(images)
+                output = self.model.head(rep_curr)
+                
+                # acc += (output.argmax(1) == labels).type(torch.float).sum().item()
+                acc += (torch.sum(torch.argmax(output, dim=1) == labels)).item()
                 
                 loss = self.criterion(output, labels)
                 
-                # Moon idea
-                output_glob = self.global_model(images)
-                output_prev = self.old_client_model(images)
-                loss_con = - torch.log(torch.exp(F.cosine_similarity(output, output_glob) / self.tau) / (
-                    torch.exp(F.cosine_similarity(output_prev, output_glob) / self.tau) + torch.exp(
-                    F.cosine_similarity(output, output_prev) / self.tau)))
+                rep_glob = self.global_model.base(images).detach()
+                rep_prev = self.old_client_model.base(images).detach()
+                loss_con = - torch.log(torch.exp(F.cosine_similarity(rep_curr, rep_glob) / self.tau) / (
+                    torch.exp(F.cosine_similarity(rep_curr, rep_glob) / self.tau) + torch.exp(
+                    F.cosine_similarity(rep_curr, rep_prev) / self.tau)))
+                
                 loss += self.mu * torch.mean(loss_con)
                 
                 losses.append(loss.item())
         
-        return correct, sum(losses) / len(losses), size
+        return acc, sum(losses) / len(losses), size

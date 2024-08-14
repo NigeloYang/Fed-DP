@@ -51,28 +51,26 @@ def get_clients(dir_path):
     return clients
 
 
-def data_plot(dataset_name, num_clients):
+def data_plot_client(dataset_name, num_clients):
     dataset, clients_dict = get_dataset(dataset_name)
     labels = np.array(dataset.targets)
-    
-    data_tri_name = ['IID-Balanced',
-                     'IID-Balanced-Homo',
-                     'IID-Unbalanced',
-                     'IID-Unbalanced-Homo',
-                     'Non-IID-Balanced-Dirichlet',
-                     'Non-IID-Hetero-Dirichlet',
-                     'Non-IID-Quantity-Based-Label-Distribution-1',
-                     'Non-IID-Quantity-Based-Label-Distribution-2',
-                     'Non-IID-Quantity-Based-Label-Distribution-3',
-                     'Non-IID-Shard',
-                     'Non-IID-Unbalanced-Dirichlet',
-                     'Non-IID-Unequal-Shard']
+
+    data_tri_name = ['Client-IID-Balanced',
+                     'Client-IID-Balanced-Homo',
+                     'Client-IID-Unbalanced',
+                     'Client-IID-Unbalanced-Homo',
+                     'Client-Non-IID-Balanced-Dirichlet',
+                     'Client-Non-IID-Hetero-Dirichlet',
+                     'Client-Non-IID-Quantity-Based-Label-Distribution-1',
+                     'Client-Non-IID-Quantity-Based-Label-Distribution-2',
+                     'Client-Non-IID-Quantity-Based-Label-Distribution-3',
+                     'Client-Non-IID-Shard',
+                     'Client-Non-IID-Unbalanced-Dirichlet',
+                     'Client-Non-IID-Unequal-Shard']
     for distri_id, name in enumerate(data_tri_name):
-        save_path = 'datadistribution/' + dataset_name + '/'
-        save_path = save_path + dataset_name + '-' + data_tri_name[distri_id] + '.png'
+        save_path = 'datadistribution/' + dataset_name + '/'+ data_tri_name[distri_id] + '.png'
         clients = clients_dict[distri_id]
-        print(type(clients))
-        
+
         plt.figure(figsize=(20, 6))  # 3
         label_distribution = [[] for _ in range(10)]
         client_labels = {clientid: [] for clientid in range(num_clients)}
@@ -82,8 +80,8 @@ def data_plot(dataset_name, num_clients):
                 client_labels[c_id].append(labels[int(idx)])
         print('The client owns the label content')
         for key, value in client_labels.items():
-            print('Client Id: {:>3} | Dataset Classes: {}'.format(key, set(value)))
-        
+            print('Client Id: {:>3} | Dataset Classes: {} | Number of Dataset: {}'.format(key, set(value), len(value)))
+
         plt.hist(label_distribution, stacked=True, bins=np.arange(-0.7, num_clients + 2, 1),
                  label=dataset.classes,
                  rwidth=0.5)
@@ -91,11 +89,65 @@ def data_plot(dataset_name, num_clients):
         plt.ylabel("Number of samples")
         plt.xlabel("Client ID")
         plt.legend()
-        plt.title("Dataset {} Distribution: {}".format(dataset_name, data_tri_name[distri_id]))
+        plt.title(
+            "Display Label Distribution on Different Clients\n Dataset {}\n Distribution Type: {}".format(dataset_name,
+                                                                                                          data_tri_name[
+                                                                                                              distri_id]))
+        # plt.savefig(save_path)
+        plt.show()
+
+
+def data_plot_label(dataset_name, num_clients):
+    dataset, clients = get_dataset(dataset_name)
+    num_classes = len(dataset.classes)
+    labels = np.array(dataset.targets)
+
+    data_tri_name = ['Lable-IID-Balanced',
+                     'Lable-IID-Balanced-Homo',
+                     'Lable-IID-Unbalanced',
+                     'Lable-IID-Unbalanced-Homo',
+                     'Lable-Non-IID-Balanced-Dirichlet',
+                     'Lable-Non-IID-Hetero-Dirichlet',
+                     'Lable-Non-IID-Quantity-Based-Label-Distribution-1',
+                     'Lable-Non-IID-Quantity-Based-Label-Distribution-2',
+                     'Lable-Non-IID-Quantity-Based-Label-Distribution-3',
+                     'Lable-Non-IID-Shard',
+                     'Lable-Non-IID-Unbalanced-Dirichlet',
+                     'Lable-Non-IID-Unequal-Shard']
+
+    for distri_id, name in enumerate(data_tri_name):
+        print('************ Dataset Distribution Type:' + name + '************')
+        save_path = 'datadistribution/' + dataset_name + '/' + data_tri_name[distri_id] + '.png'
+        clients_dict = clients[distri_id]
+
+        plt.figure(figsize=(20, 6))
+        label_distribution = [[] for _ in range(num_classes)]
+        client_labels = {clientid: [] for clientid in range(num_clients)}
+        for c_id in range(num_clients):
+            for label_idx in clients_dict[str(c_id)]:
+                client_labels[c_id].append(labels[int(label_idx)])
+                label_distribution[labels[int(label_idx)]].append(c_id)
+        print('The client owns the label content')
+        for key, value in client_labels.items():
+            print('Client Id: {:>3} | Dataset Classes: {} | Number of Dataset: {}'.format(key, set(value), len(value)))
+
+        plt.hist([client_labels[c_id] for c_id in range(num_clients)], stacked=True,
+                 bins=np.arange(min(labels) - 0.5, max(labels) + 1.5, 1),
+                 label=["Client {}".format(i) for i in range(num_clients)],
+                 rwidth=0.5)
+        plt.xticks(np.arange(num_classes), dataset.classes)
+        plt.ylabel("Number of samples")
+        plt.xlabel("Label type")
+        plt.legend(loc="upper right")
+        plt.title(
+            "Display Label Distribution on Different Clients\n Dataset {}\n Distribution Type: {}".format(dataset_name,
+                                                                                                          data_tri_name[
+                                                                                                              distri_id]))
         # plt.savefig(save_path)
         plt.show()
 
 
 if __name__ == "__main__":
     # get_clients('./formatdata/cifar10/')
-    data_plot('cifar10', 10)
+    data_plot_client('mnist', 10)
+    # data_plot_label('mnist', 10)

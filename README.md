@@ -39,7 +39,7 @@ Command to create a new environment in anaconda
   conda activate env_name
   ```
 
-## Datasets and Separation (updating)
+## Datasets and Separation
 This project has generated Ten data distributions of MNIST, Fashion-Mnist and Cifar-10, as follows:
 - Balanced-IID (two)
 - Unbalanced-IID (two)
@@ -55,30 +55,41 @@ Generation Data Methods:
 cd Fed-DP/dataset
 python generate_data.py  # for MNIST iid_balanced_100
 ```
-For details, please see: [Generate Datasets](./dataset/README.md)  (updating)
+For details, please see: [Generate Datasets](./dataset/README.md)
 
 ## How to start simulating
 
-- Build dataset: [Datasets](./dataset/README.md) (updating)
-
+- Build dataset: [Datasets](./dataset/README.md)
 - Train and evaluate the model:
     ```bash
     python main.py --algorithm=FedAvg  # for FedAvg and MNIST,dataset distribution --dataiid=1
     ```
 
-## Contact
-
-For technical issues related to Fed-DP development, please contact me through Github issues or email:
-  :satisfied: 
-
-- 📧 yangqiantao@126.com
-
 ## Development progress
 - [x] Base Federated Learning Framework
 - [x] Integrated Differential Privacy (Updating,next add meta`s DP tool -> opacus )
-- [x] Integrated shuffle Model (Updating)
-- [x] Integrated Personalized Federated Learning to solve Non-IID (Updating)
-- [x] Generated Data: IID, Non-IID (Updating)
+- [x] Integrated shuffle Model
+- [x] Integrated HE (Updating)
+- [X] Integrated MPC (Updating) 
+- [x] Integrated Personalized Federated Learning to solve Non-IID
+- [x] Generated Data: IID, Non-IID
+
+
+## Citation
+```
+@misc{yang2023, 
+  author = {Qiantao Yang}, 
+  title = {Fed-DP}, 
+  howpublished = {https://github.com/NigeloYang/Fed-DP}, 
+  year = {2023}
+}
+```
+
+## Contact
+
+For technical issues related to Fed-DP development, please contact me through Github issues or email :satisfied: 
+
+📧 yangqiantao@outlook.com
 
 
 ## References
